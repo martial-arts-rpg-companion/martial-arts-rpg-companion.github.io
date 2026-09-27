@@ -103,6 +103,7 @@ section[hidden]{display:none}
 .bm-c.give .bm-n,.bm-k.give{background:#148cff}.bm-c.out .bm-n{background:#e0a020}
 .bm-n.in{position:static;display:inline-block;vertical-align:1px}
 .bm-c.ic{background-size:cover;background-position:center;background-color:#000}
+.mini-ic{display:inline-block;width:20px;height:20px;margin-right:5px;vertical-align:-5px;border-radius:3px;background-size:cover;background-color:#000;border:1px solid var(--line)}
 .bm-big .bagmap{overflow-x:auto}
 .bm-big .bm-grid{grid-template-columns:repeat(11,48px);gap:5px}
 .bm-big .bm-c{width:48px;height:48px;font-size:26px;border-width:3px;border-radius:7px}
@@ -1822,7 +1823,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
         rem.rows.map(function (r) {
           var p = r.g ? (r.hp ? '<span class="pill hp">' + (hpTxt(hpRatio(m, m.eq[r.s], r.g.it)).split(',')[0] || 'HP') + '</span>' : pill(r.g.g)) : '<span class="pill">+</span>';
           var tip = r.g2 && !r.hp && r.g2.avg > r.g.avg + 0.01 ? ' <span class="alias">(Treasure: ' + C.pctTxt((r.g2.g[0] + r.g2.g[1]) / 2) + ')</span>' : '';
-          return '<li><span class="ico">' + (r.hp ? '&#10084;&#65039;' : (r.g ? '&#9876;&#65039;' : '&#10024;')) + '</span> ' + p + ' <span class="slotn">' + SLOTN[r.s] + '</span> ' + r.txt + tip + '</li>';
+          return '<li><span class="ico">' + (r.hp ? '&#10084;&#65039;' : (r.g ? '&#9876;&#65039;' : '&#10024;')) + '</span> ' + p + ' <span class="slotn">' + SLOTN[r.s] + '</span> ' + miniIc(r.id) + r.txt + tip + '</li>';
         }).join('') + '</ul>';
       var hz = higherZone(c, m, rem.t);
       if (hz) html += '<div class="ros-txt alias">Stronger option: T' + hz.t + ' at <i>' + esc(hz.zone) + '</i> (' + hz.n + ' upgrades, ' + C.pctTxt(hz.g[0]) + ' together) if you can clear it.</div>';
@@ -1920,13 +1921,13 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     slots.forEach(function (s) {
       var cur = m.eq[s];
       if (cur && (cur.tier || 0) >= t) { done++; return; }
-      if (s >= 7) { rows.push({ s: s, txt: 'any ' + lv(t) + ' ring (only [Bonus] lines)', g: null }); return; }
+      if (s >= 7) { var rl = itemIndex()[s + ':' + t] || []; rows.push({ s: s, id: rl.length ? rl[0].id : '', txt: 'any ' + lv(t) + ' ring (only [Bonus] lines)', g: null }); return; }
       var lo = bestCand(m, s, t, 1), hi = bestCand(m, s, t, 3);
       if (!lo) return;
       var sa = surv(lo.it), sb = surv(cur), hpOnly = lo.avg < 1.003 && hi.avg < 1.003 && (sa.hp > sb.hp || sa.hpr > sb.hpr);
       if (!hpOnly && hi.avg < 1.005 && cur) { done++; return; }          // even a Treasure drop would not beat what you wear
       var goodOnly = !hpOnly && lo.avg <= 1.003;
-      rows.push({ s: s, txt: '<b>' + esc(lo.it.name) + '</b>' + (goodOnly ? ' <span class="alias">(Treasure or better)</span>' : '') +
+      rows.push({ s: s, id: lo.it.id, txt: '<b>' + esc(lo.it.name) + '</b>' + (goodOnly ? ' <span class="alias">(Treasure or better)</span>' : '') +
         (cur ? ' <span class="alias">&middot; you have ' + esc(cur.name) + ' Lv ' + cur.tier + ' ' + RAR[(cur.rarity || 1) - 1] + '</span>' : ' <span class="alias">&middot; slot empty</span>'),
         g: goodOnly ? hi : lo, g2: goodOnly ? null : hi, hp: hpOnly });
     });
@@ -2064,6 +2065,10 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
 
   // ---- bag map: the in-game bag (11 per row, same order as the save) with the swaps marked
   var GLY = { 1: '&#128481;&#65039;', 2: '&#128085;', 3: '&#9937;&#65039;', 4: '&#128255;', 5: '&#8986;', 6: '&#129508;', 7: '&#128141;', 8: '&#128141;', 9: '&#128302;', 10: '&#128302;' };
+  function miniIc(id) {   // the item's in-game icon, inline next to its name
+    var IC = window.MA_ICONS, ix = IC && IC.item && id ? IC.item[id] : undefined;
+    return ix !== undefined && IC.img[ix] ? '<span class="mini-ic" style="background-image:url(data:image/webp;base64,' + IC.img[ix] + ')"></span>' : '';
+  }
   function bmCell(it, cls, badge, tip) {
     if (!it) return '<span class="bm-c empty"></span>';
     var IC = window.MA_ICONS, ix = IC && IC.item ? IC.item[it.id] : undefined, src = ix !== undefined && IC.img[ix] ? IC.img[ix] : '';
@@ -2192,7 +2197,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
         rem.rows.map(function (r) {
           var p = r.g ? (r.hp ? '<span class="pill hp">' + (hpTxt(hpRatio(m, m.eq[r.s], r.g.it)).split(',')[0] || 'HP') + '</span>' : pill(r.g.g)) : '<span class="pill">+</span>';
           var t2 = r.g2 && !r.hp && r.g2.avg > r.g.avg + 0.01 ? ' <span class="alias">(Treasure: ' + C.pctTxt((r.g2.g[0] + r.g2.g[1]) / 2) + ')</span>' : '';
-          return '<li><span class="ico">' + (r.hp ? '&#10084;&#65039;' : (r.g ? '&#9876;&#65039;' : '&#10024;')) + '</span> ' + p + ' <span class="slotn">' + SLOTN[r.s] + '</span> ' + r.txt + t2 + '</li>';
+          return '<li><span class="ico">' + (r.hp ? '&#10084;&#65039;' : (r.g ? '&#9876;&#65039;' : '&#10024;')) + '</span> ' + p + ' <span class="slotn">' + SLOTN[r.s] + '</span> ' + miniIc(r.id) + r.txt + t2 + '</li>';
         }).join('') + '</ul>';
       if (rem.t <= 3 && farmTier(c) < 4) html += '<div class="ros-txt alias hf3q">Can this character farm <i>Hunting Field 3</i> (Raider Leader)? ' +
         '<button type="button" class="mini' + (hf3(c) ? ' on' : '') + '" data-hf3="' + hf3Key(c) + '" data-v="1">Yes</button> ' +
