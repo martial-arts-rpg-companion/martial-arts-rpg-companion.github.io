@@ -2122,14 +2122,24 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     var e = '';
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach(function (s) { var it = m.eq[s]; e += it ? bmCell(it, eqN[s] ? 'out' : '', eqN[s] || '', (s === 9 ? 'Vajra Essence' : s === 10 ? 'Yin-Yang Essence' : SLOTN[s]) + ': ' + it.name + (eqN[s] ? ' (take off for ' + eqN[s] + ')' : '')) : '<span class="bm-c empty" title="' + (s === 9 ? 'Vajra Essence' : s === 10 ? 'Yin-Yang Essence' : SLOTN[s]) + ': empty"></span>'; });
     var n = { up: acts.filter(function (x) { return x.bag; }).length, give: (b.given || []).length, junk: (b.junk || []).length + (b.up || []).length - acts.filter(function (x) { return x.bag && !x.bag.essence; }).length + ej };
-    return '<details class="bagmap"' + (n.up || n.give ? ' open' : '') + '><summary>&#127890; Bag map <span class="alias">(' +
-      [n.up ? n.up + ' to equip' : '', n.give ? n.give + ' to give' : '', n.junk ? n.junk + ' safe to discard' : ''].filter(Boolean).join(' &middot; ') + ')</span></summary>' +
+    return '<details class="bagmap"' + (n.up || n.give || inv.length >= BAGMAX - 8 ? ' open' : '') + '><summary>&#127890; Bag map <span class="alias">(' +
+      [inv.length + '/' + BAGMAX, n.up ? n.up + ' to equip' : '', n.give ? n.give + ' to give' : '', n.junk ? n.junk + ' safe to discard' : ''].filter(Boolean).join(' &middot; ') + ')</span></summary>' +
       '<div class="bm-lbl alias">Worn (numbered = take off)</div><div class="bm-grid eq">' + e + '</div>' +
       '<div class="bm-lbl alias">Bag, same order as in game &middot; <b class="bm-k up">1</b> equip &middot; <b class="bm-k give">S1</b> give to that slot &middot; faded = not useful</div>' +
       '<div class="bm-grid">' + g + '</div></details>';
   }
+  var BAGMAX = 88;
+  function bagUsed(c) { return (c.inventory || []).length; }
+  function bagWarn(c) {
+    var n = bagUsed(c), junk = c._bag ? (c._bag.junk || []).length : 0;
+    if (n >= BAGMAX) return '<li class="big"><span class="ico">&#9888;&#65039;</span> <b>Bag full (' + n + '/' + BAGMAX + ')</b>: new drops are lost' +
+      (c.afk && c.afk.count ? ', AFK training gear too' : '') + '. Discard the faded items in the bag map' + (junk ? ' (' + junk + ' safe to discard)' : '') + '.</li>';
+    if (n >= BAGMAX - 8) return '<li><span class="ico">&#9888;&#65039;</span> Bag almost full: <b>' + n + '/' + BAGMAX + '</b>' + (junk ? ' <span class="alias">(' + junk + ' safe to discard)</span>' : '') + '</li>';
+    return '';
+  }
   function light(c, m, acts) {
     var cond = c.afk_time_bank || 0;
+    if (bagUsed(c) >= BAGMAX) return ['red', 'Bag full'];
     var empty = [1, 2, 3, 4, 5, 6].some(function (s) { return !ign(s) && !m.eq[s]; });
     if (c.afk && c.afk.count) return ['blue', 'In AFK training'];
     if (cond < 100) return ['red', 'Condition empty: Boss Hunts only'];
@@ -2279,7 +2289,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       '<span class="acc-st ' + st[0] + '">' + st[1] + '</span>' + totalPill(acts) +
       '<span class="hide-x" role="button" title="Hide this character" data-hide="' + hidKey(c) + '">Hide</span><span class="chev">&#9662;</span></button>';
     var num = 0; acts.forEach(function (x) { if (x.bag) x.n = ++num; });
-    var body = '<div class="ros-lbl">Do this next</div><ul class="ros-list">';
+    var body = '<div class="ros-lbl">Do this next</div><ul class="ros-list">' + bagWarn(c);
     if (top) body += actLi(top, true);
     var nl = nextLine(c, m);
     if (!top) body += '<li class="big">' + (nl || 'Nothing to do right now.') + '</li>';
