@@ -1588,6 +1588,13 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     return up.length ? up.join(', ') : null;
   }
   function surv(it) { var h = 0, r = 0; (it ? (it.main || []).concat(it.subs || []) : []).forEach(function (x) { if (x.stat === 'hp') h += x.value || 0; if (x.stat === 'hpr') r += x.value || 0; }); return { hp: h, hpr: r }; }
+  function wornTxt(m, it) {   // which worn item the bag item replaces
+    var w = m && m.eq ? m.eq[it.slot] : null;
+    if (!w) return '';
+    var ln = (w.main || []).concat((w.subs || []).map(function (x) { return { stat: x.stat, value: x.value, b: 1 }; }))
+      .filter(function (x) { return STATN[x.stat]; }).map(function (x) { return (x.b ? '[Bonus] ' : '') + STATN[x.stat] + ' ' + fmtVal(x.stat, x.value); }).join(', ');
+    return ' <span class="alias">instead of ' + esc(w.name) + ' <span class="rar r' + (w.rarity || 1) + '">Lv ' + (w.tier || '?') + ' ' + RAR[(w.rarity || 1) - 1] + '</span>' + (ln ? ' (' + ln + ')' : '') + '</span>';
+  }
   function itemInfo(it) {
     var lines = (it.main || []).concat((it.subs || []).map(function (x) { return { stat: x.stat, value: x.value, b: 1 }; }))
       .filter(function (x) { return STATN[x.stat]; })
@@ -1733,15 +1740,15 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       return Object.keys(by).map(function (k) { return by[k]; });
     };
     bestPer(c._bag.up).forEach(function (u) {
-      if (u.x.kind === 'dmg') a.push(['Equip <b>' + esc(u.it.name) + '</b> from your bag', u.x.g, u.x.avg]);
-      else if (u.x.kind === 'free') a.push(['Equip <b>' + esc(u.it.name) + '</b> from your bag (' + freeTxt(u.x) + ')', null, u.x.avg, 'free']);
-      else if (u.x.kind === 'trade') a.push(['Equip <b>' + esc(u.it.name) + '</b> from your bag: trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
-      else a.push(['Equip <b>' + esc(u.it.name) + '</b> from your bag for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
+      if (u.x.kind === 'dmg') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span>', u.x.g, u.x.avg]);
+      else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span> (' + freeTxt(u.x) + ')', null, u.x.avg, 'free']);
+      else if (u.x.kind === 'trade') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span>: trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
+      else a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span> for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
     });
     bestPer(c._bag.share).forEach(function (u) {
       var k = u.x.kind, why = k === 'dmg' ? '' : (k === 'free' ? ' (' + freeTxt(u.x) + ')' :
         (k === 'trade' ? ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr) : ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ')'));
-      a.push(['Take <b>' + esc(u.it.name) + '</b> from ' + (u.from.slot ? 'Slot ' + u.from.slot + '&rsquo;s bag' : 'the <b>Share bag</b>') + why +
+      a.push(['Take ' + itemInfo(u.it) + wornTxt(m, u.it) + ' from ' + (u.from.slot ? 'Slot ' + u.from.slot + '&rsquo;s bag' : 'the <b>Share bag</b>') + why +
         (u.from.slot ? ' (unbound: right-click &rarr; share)' : ''), k === 'dmg' ? u.x.g : null, u.x.avg, k === 'dmg' ? null : (k === 'free' ? 'free' : (k === 'trade' ? 'Trade' : 'HP'))]);
     });
     if (m.enh && withEnh()) a.push(['Enhance <b>' + esc(m.eq[1].name) + '</b> to +' + ((m.eq[1].enhance || 0) + 1) + ' <span class="alias">(' + enhCost(m.eq[1]) + ' per try)</span>', m.enh.g, m.enh.avg]);
