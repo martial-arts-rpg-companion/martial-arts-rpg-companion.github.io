@@ -1562,12 +1562,16 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     return [m.hpF > 0 ? (m.hpF + b.hp - a.hp) / m.hpF : 1, m.hprF > 0 ? (m.hprF + b.hpr - a.hpr) / m.hprF : 1];
   }
   function survScore(m, dmgAvg, hr) { return dmgAvg * Math.pow(Math.max(hr[0], 0.01), m.sw) * Math.pow(Math.max(hr[1], 0.01), m.sw * m.rw); }
-  function freeTxt(x) {   // free item: what it adds + how much better it is right now
-    var v = ((x.dmg || 1) - 1) * 100, p = [], h = x.hr ? hpTxt(x.hr) : '';
-    if (v >= 0.05) p.push('<b>+' + (v >= 1 ? v.toFixed(1) : v.toFixed(2)) + '% dmg</b>');
-    if (h) p.push('<b>' + h + '</b>');
-    var why = /Crit Damage/.test(x.free) && v < 1 ? ', small while crit chance is low' : '';
-    return 'nothing lost: ' + (p.length ? p.join(', ') + ' from ' + x.free + why : x.free + ' (tiny gain for now' + why + ')');
+  function freePill(x) {   // free item: its gain right now as a pill (damage first, else HP)
+    var v = ((x.dmg || 1) - 1) * 100, h = x.hr ? hpTxt(x.hr).split(',')[0] : '';
+    if (v >= 0.05) return '<span class="pill">+' + (v >= 1 ? v.toFixed(1) : v.toFixed(2)) + '% dmg</span>';
+    if (h) return '<span class="pill hp">' + h + '</span>';
+    return '<span class="pill">free</span>';
+  }
+  function freeTxt(x) {
+    var v = ((x.dmg || 1) - 1) * 100, h = x.hr ? hpTxt(x.hr) : '';
+    var why = /Crit Damage/.test(x.free) && v < 1 ? ', small while crit chance is low' : (v < 0.05 && !h ? ', tiny gain for now' : '');
+    return 'nothing lost' + why;
   }
   function hpTxt(hr) {
     var p = [];
@@ -1741,20 +1745,20 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     };
     bestPer(c._bag.up).forEach(function (u) {
       if (u.x.kind === 'dmg') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it), u.x.g, u.x.avg]);
-      else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' (' + freeTxt(u.x) + ')', null, u.x.avg, 'free']);
+      else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(' + freeTxt(u.x) + ')</span>', null, u.x.avg, 'free', freePill(u.x)]);
       else if (u.x.kind === 'trade') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
       else a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
     });
     bestPer(c._bag.share).forEach(function (u) {
-      var k = u.x.kind, why = k === 'dmg' ? '' : (k === 'free' ? ' (' + freeTxt(u.x) + ')' :
+      var k = u.x.kind, why = k === 'dmg' ? '' : (k === 'free' ? ' <span class="alias">(' + freeTxt(u.x) + ')</span>' :
         (k === 'trade' ? ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr) : ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ')'));
       a.push(['Take ' + itemInfo(u.it) + wornTxt(m, u.it) + ' from ' + (u.from.slot ? 'Slot ' + u.from.slot + '&rsquo;s bag' : 'the <b>Share bag</b>') + why +
-        (u.from.slot ? ' (unbound: right-click &rarr; share)' : ''), k === 'dmg' ? u.x.g : null, u.x.avg, k === 'dmg' ? null : (k === 'free' ? 'free' : (k === 'trade' ? 'Trade' : 'HP'))]);
+        (u.from.slot ? ' (unbound: right-click &rarr; share)' : ''), k === 'dmg' ? u.x.g : null, u.x.avg, k === 'dmg' ? null : (k === 'free' ? 'free' : (k === 'trade' ? 'Trade' : 'HP')), k === 'free' ? freePill(u.x) : null]);
     });
     if (m.enh && withEnh()) a.push(['Enhance <b>' + esc(m.eq[1].name) + '</b> to +' + ((m.eq[1].enhance || 0) + 1) + ' <span class="alias">(' + enhCost(m.eq[1]) + ' per try)</span>', m.enh.g, m.enh.avg]);
     return a.sort(function (x, y) { return y[2] - x[2]; });
   }
-  function actPill(x) { return x[1] ? pill(x[1]) : '<span class="pill' + (x[3] === 'HP' ? ' hp' : (x[3] === 'Trade' ? ' trade' : '')) + '">' + (x[3] || '!') + '</span>'; }
+  function actPill(x) { return x[1] ? pill(x[1]) : x[4] ? x[4] : '<span class="pill' + (x[3] === 'HP' ? ' hp' : (x[3] === 'Trade' ? ' trade' : '')) + '">' + (x[3] || '!') + '</span>'; }
 
   function gearRows(c, m) {
     var minT = 99; GEARSLOTS.forEach(function (s) { if (ign(s)) return; var t = m.eq[s] ? m.eq[s].tier || 0 : 0; if (t < minT) minT = t; });
@@ -1813,7 +1817,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     html += '<details><summary>Gear</summary><table class="gear-t">' + gearRows(c, m) + '</table></details>';
     if ((c.inventory || []).length) {
       var li = function (tag, cls, body) { return '<li><span class="tag' + (cls ? ' ' + cls : '') + '">' + tag + '</span> ' + body + '</li>'; };
-      var why = function (x) { return x.kind === 'dmg' ? pill(x.g) : (x.kind === 'free' ? freeTxt(x) :
+      var why = function (x) { return x.kind === 'dmg' ? pill(x.g) : (x.kind === 'free' ? freePill(x) + ' ' + freeTxt(x) :
         (x.kind === 'trade' ? 'trade ' + C.pctTxt(x.dmg) + ' damage for ' + hpTxt(x.hr) : 'survival: ' + (hpTxt(x.hr) || survTxt(x)))); };
       var n = { up: b.up.length, given: b.given.length, later: b.later.length, junk: b.junk.length, other: b.other.length };
       var sum = [n.up ? n.up + ' to equip' : '', n.given ? n.given + ' for others' : '', n.later ? n.later + ' keep' : '',
@@ -2109,7 +2113,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     html += '<details><summary>Gear</summary><table class="gear-t">' + gearRows(c, m) + '</table></details>';
     if ((c.inventory || []).length) {
       var li = function (tag, cls, body) { return '<li><span class="tag' + (cls ? ' ' + cls : '') + '">' + tag + '</span> ' + body + '</li>'; };
-      var why = function (x) { return x.kind === 'dmg' ? pill(x.g) : (x.kind === 'free' ? freeTxt(x) :
+      var why = function (x) { return x.kind === 'dmg' ? pill(x.g) : (x.kind === 'free' ? freePill(x) + ' ' + freeTxt(x) :
         (x.kind === 'trade' ? 'trade ' + C.pctTxt(x.dmg) + ' damage for ' + hpTxt(x.hr) : 'survival: ' + (hpTxt(x.hr) || survTxt(x)))); };
       var n = { up: b.up.length, given: b.given.length, later: b.later.length, junk: b.junk.length, other: b.other.length };
       var sum = [n.up ? n.up + ' to equip' : '', n.given ? n.given + ' for others' : '', n.later ? n.later + ' keep' : '',
