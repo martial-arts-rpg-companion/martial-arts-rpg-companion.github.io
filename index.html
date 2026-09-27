@@ -1594,6 +1594,9 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     var why = /Crit Damage/.test(x.free) && v < 1 ? ', small while crit chance is low' : (v < 0.05 && !h ? ', tiny gain for now' : '');
     return 'nothing lost' + why;
   }
+  function bigHp(hr) {   // the larger of the HP / HP Regen gains, as text
+    return hpTxt(hr[1] - 1 > hr[0] - 1 ? [1, hr[1]] : [hr[0], 1]);
+  }
   function hpTxt(hr) {
     var p = [];
     if (Math.abs(hr[0] - 1) > 0.0005) p.push((hr[0] >= 1 ? '+' : '') + ((hr[0] - 1) * 100).toFixed(hr[0] - 1 >= 0.1 ? 0 : 1) + '% HP');
@@ -1822,7 +1825,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       html += '<div class="ros-lbl">Remaining at T' + rem.t + ' <span class="alias">&middot; ' + rem.done + ' of ' + rem.total + ' slots done</span></div>' +
         '<div class="ros-txt">Farm <i>' + esc(rem.zone) + '</i></div><ul class="ros-list rem">' +
         rem.rows.map(function (r) {
-          var p = r.g ? (r.hp ? '<span class="pill hp">' + (hpTxt(hpRatio(m, m.eq[r.s], r.g.it)).split(',')[0] || 'HP') + '</span>' : pill(r.g.g)) : '<span class="pill">+</span>';
+          var p = r.g ? (r.hp ? '<span class="pill hp">' + (bigHp(hpRatio(m, m.eq[r.s], r.g.it)) || 'HP') + '</span>' : pill(r.g.g)) : '<span class="pill">+</span>';
           var tip = r.g2 && !r.hp && r.g2.avg > r.g.avg + 0.01 ? ' <span class="alias">(Treasure: ' + C.pctTxt((r.g2.g[0] + r.g2.g[1]) / 2) + ')</span>' : '';
           return '<li><span class="ico">' + (r.hp ? '&#10084;&#65039;' : (r.g ? '&#9876;&#65039;' : '&#10024;')) + '</span> ' + p + ' <span class="slotn">' + SLOTN[r.s] + '</span> ' + miniIc(r.id) + r.txt + tip + '</li>';
         }).join('') + '</ul>';
@@ -1888,8 +1891,15 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     });
     return IDX;
   }
-  function makeItem(e, rar) {   // a typical drop of this item at rarity rar (1..5), no bonus lines
-    return { id: e.id, name: e.d.n, slot: e.d.s, tier: e.d.t, rarity: rar, subs: [],
+  var SUBN = [0, 0.1, 0.65, 1.65, 2.5, 3];   // average bonus lines per rarity
+  function expSubs(t, rar, slot) {
+    if (!t || t <= 3) return [];
+    var n = (SUBN[rar] || 0) + (slot === 7 || slot === 8 ? 1 : 0), out = [];
+    for (var k = 1; k <= 11; k++) out.push({ stat: SK[k], value: window.MASave.subValue(k, t, rar) * n / 11 });
+    return out;
+  }
+  function makeItem(e, rar) {   // a typical drop of this item at rarity rar (1..5), with its average bonus lines
+    return { id: e.id, name: e.d.n, slot: e.d.s, tier: e.d.t, rarity: rar, subs: expSubs(e.d.t, rar, e.d.s),
       main: (e.d.m || []).map(function (x) { return { stat: SK[x[0]], value: window.MASave.mainValue(x[0], x[1], rar) }; }) };
   }
   function bestCand(m, slot, tier, rar) {   // best item of that slot+tier for this hero (picks the right necklace)
@@ -1922,10 +1932,9 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     slots.forEach(function (s) {
       var cur = m.eq[s];
       if (cur && (cur.tier || 0) >= t) { done++; return; }
-      if (s >= 7) { var rl = itemIndex()[s + ':' + t] || []; rows.push({ s: s, id: rl.length ? rl[0].id : '', txt: 'any ' + lv(t) + ' ring (only [Bonus] lines)', g: null }); return; }
       var lo = bestCand(m, s, t, 1), hi = bestCand(m, s, t, 3);
       if (!lo) return;
-      var sa = surv(lo.it), sb = surv(cur), hpOnly = lo.avg < 1.003 && hi.avg < 1.003 && (sa.hp > sb.hp || sa.hpr > sb.hpr);
+      var hrl = hpRatio(m, cur, lo.it), hpOnly = lo.avg < 1.003 && hi.avg < 1.003 && (!cur || hrl[0] > 1.02 || hrl[1] > 1.05);   // HP-only rows need a real HP gain
       if (!hpOnly && hi.avg < 1.005 && cur) { done++; return; }          // even a Treasure drop would not beat what you wear
       var goodOnly = !hpOnly && lo.avg <= 1.003;
       rows.push({ s: s, id: lo.it.id, txt: '<b>' + esc(lo.it.name) + '</b>' + (goodOnly ? ' <span class="alias">(Treasure or better)</span>' : '') +
@@ -2207,10 +2216,10 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     var html = '<div class="ros-stat">' + condLine(c) + '<br>' + rateLine(c) + '</div>' + raidHtml(c) + essHtml(c, m);
     var rem = remaining(c, m);
     if (rem) {
-      html += '<div class="ros-lbl">Remaining at ' + lv(rem.t) + ' <span class="alias">&middot; ' + rem.done + ' of ' + rem.total + ' slots done</span></div>' +
+      html += '<div class="ros-lbl">' + tip('Remaining at ' + lv(rem.t), 'Numbers count the bonus lines a drop of that rarity rolls on average') + ' <span class="alias">&middot; ' + rem.done + ' of ' + rem.total + ' slots done</span></div>' +
         '<div class="ros-txt">Farm <i>' + esc(rem.zone) + '</i></div><ul class="ros-list rem">' +
         rem.rows.map(function (r) {
-          var p = r.g ? (r.hp ? '<span class="pill hp">' + (hpTxt(hpRatio(m, m.eq[r.s], r.g.it)).split(',')[0] || 'HP') + '</span>' : pill(r.g.g)) : '<span class="pill">+</span>';
+          var p = r.g ? (r.hp ? '<span class="pill hp">' + (bigHp(hpRatio(m, m.eq[r.s], r.g.it)) || 'HP') + '</span>' : pill(r.g.g)) : '<span class="pill">+</span>';
           var t2 = r.g2 && !r.hp && r.g2.avg > r.g.avg + 0.01 ? ' <span class="alias">(Treasure: ' + C.pctTxt((r.g2.g[0] + r.g2.g[1]) / 2) + ')</span>' : '';
           return '<li><span class="ico">' + (r.hp ? '&#10084;&#65039;' : (r.g ? '&#9876;&#65039;' : '&#10024;')) + '</span> ' + p + ' <span class="slotn">' + SLOTN[r.s] + '</span> ' + miniIc(r.id) + r.txt + t2 + '</li>';
         }).join('') + '</ul>';
