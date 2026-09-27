@@ -217,7 +217,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
     <details class="settings"><summary>&#9881;&#65039; Settings</summary>
       <div class="set-grid">
         <label>View <select id="ros-mode"><option value="simple">Simple</option><option value="detailed">Detailed</option></select></label>
-        <label title="Only if a character dies or loses its buffs in its zone">Survival <select id="ros-surv"><option value="0">Off</option><option value="0.25">Some (&frac14;)</option><option value="0.5">A lot (&frac12;)</option><option value="0.75">Heavy (&frac34;)</option><option value="1">Equal (1:1)</option></select></label>
+        <label title="Only if a character dies or loses its buffs in its zone">Survival <select id="ros-surv"><option value="0">Off</option><option value="0.25">Some (&frac14;)</option><option value="0.5">A lot (&frac12;)</option><option value="0.75">Heavy (&frac34;)</option><option value="1">Equal (1:1)</option><option value="c">Custom</option></select> <input id="ros-surv-c" type="number" min="0" max="5" step="0.05" placeholder="0-5" hidden style="width:4.5em" title="How many % damage 1% more HP is worth. 0.5 = half, 1 = equal, 2 = double"></label>
         <label><input type="checkbox" id="ros-enh"> Include enhancing</label>
         <label title="A box listing new items, rank-ups and new wearable levels since you last clicked Seen"><input type="checkbox" id="ros-chg"> Show &ldquo;what changed&rdquo;</label>
         <label title="In game type -1: the line &quot;Current TOTAL: Drop/Currency +X%&quot; is one number for both drops and currency. Only needed in group lobbies: the lobby bonus is not in the save.">Drop/Currency % from <code>-1</code> <input id="ros-drop" type="number" min="0" step="1" placeholder="auto" style="width:5em"></label>
@@ -400,6 +400,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
       <li><b>A lot</b>: HP counts more (1% more HP &asymp; &frac12; of 1% more damage).</li>
       <li><b>Heavy</b>: 1% more HP &asymp; &frac34; of 1% more damage.</li>
       <li><b>Equal (1:1)</b>: 1% more HP counts the same as 1% more damage. Only if survival is your real wall.</li>
+      <li><b>Custom</b>: type your own number, 0 to 5. It is how many % damage 1% more HP is worth (2 = HP counts double).</li>
     </ul>
     It then also suggests HP / HP Regen upgrades and <b>Trade</b> items that lose a little damage for a lot of HP. The &ldquo;+x% HP&rdquo; is measured against your character's real total HP, so early armor upgrades show big numbers and late ones small.<br>
     <b>Blood Cult</b> benefits most: its skills cost its own HP, and Bloodburst switches off below 20% HP.<br>
@@ -1541,7 +1542,11 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       sw: survW() * (c.hero_id === 'H00W' ? 1.5 : 1) };
   }
 
-  function survW() { var e = document.getElementById('ros-surv'); return e ? (+e.value || 0) : 0; }
+  function survW() {
+    var e = document.getElementById('ros-surv'); if (!e) return 0;
+    if (e.value === 'c') { var c = document.getElementById('ros-surv-c'), v = c ? parseFloat(c.value) : NaN; return isFinite(v) ? Math.min(5, Math.max(0, v)) : 0; }
+    return +e.value || 0;
+  }
   function hpRatio(m, cur, it) {   // [HP ratio, HP Regen ratio] from swapping cur -> it
     var a = surv(cur), b = surv(it);
     return [m.hpF > 0 ? (m.hpF + b.hp - a.hp) / m.hpF : 1, m.hprF > 0 ? (m.hprF + b.hpr - a.hpr) / m.hprF : 1];
@@ -2366,8 +2371,15 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   (function () {
     var sv = $('ros-surv');
     if (sv) {
-      try { var v = localStorage.getItem('ma-calc-surv'); if (v != null) sv.value = v; } catch (x) {}
-      sv.addEventListener('change', function () { try { localStorage.setItem('ma-calc-surv', sv.value); } catch (x) {} if (lastRes) show(lastRes); });
+      var sc = $('ros-surv-c');
+      try { var v = localStorage.getItem('ma-calc-surv'); if (v != null) sv.value = v; if (sc) sc.value = localStorage.getItem('ma-calc-surv-c') || ''; } catch (x) {}
+      if (sc) sc.hidden = sv.value !== 'c';
+      sv.addEventListener('change', function () {
+        try { localStorage.setItem('ma-calc-surv', sv.value); } catch (x) {}
+        if (sc) { sc.hidden = sv.value !== 'c'; if (!sc.hidden) sc.focus(); }
+        if (lastRes) show(lastRes);
+      });
+      if (sc) sc.addEventListener('change', function () { try { localStorage.setItem('ma-calc-surv-c', sc.value); } catch (x) {} if (lastRes) show(lastRes); });
     }
   })();
   (function () {
