@@ -417,7 +417,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
     <tr><td>Basic</td><td>Fist Fighter, Archer, Bandit, Moyong, Demon Cult</td><td>Basic and Skill Damage, Attack Speed, basic crit</td></tr>
     <tr><td>Basic skills</td><td>Blood Cult, Fallen Shaolin</td><td>Basic and Skill Damage, All Damage, skill crit</td></tr>
   </table></div>
-  <p class="alias">The calculator uses a model of every hero's skills built from the map's code. It compares upgrades; it does not predict exact damage numbers. Temporary buffs, Essences and armor/helmet enhancing are not counted.</p>
+  <p class="alias">The calculator uses a model of every hero's skills built from the map's code. It compares upgrades; it does not predict exact damage numbers. Temporary buffs and armor/helmet enhancing are not counted. Your equipped Essences are counted.</p>
 </section>
 
 </main>
@@ -1756,6 +1756,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
         (u.from.slot ? ' (unbound: right-click &rarr; share)' : ''), k === 'dmg' ? u.x.g : null, u.x.avg, k === 'dmg' ? null : (k === 'free' ? 'free' : (k === 'trade' ? 'Trade' : 'HP')), k === 'free' ? freePill(u.x) : null]);
     });
     if (m.enh && withEnh()) a.push(['Enhance <b>' + esc(m.eq[1].name) + '</b> to +' + ((m.eq[1].enhance || 0) + 1) + ' <span class="alias">(' + enhCost(m.eq[1]) + ' per try)</span>', m.enh.g, m.enh.avg]);
+    a = a.concat(essTodo(c, m));
     return a.sort(function (x, y) { return y[2] - x[2]; });
   }
   function actPill(x) { return x[1] ? pill(x[1]) : x[4] ? x[4] : '<span class="pill' + (x[3] === 'HP' ? ' hp' : (x[3] === 'Trade' ? ' trade' : '')) + '">' + (x[3] || '!') + '</span>'; }
@@ -1828,7 +1829,8 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
         b.later.map(function (x) { return li('Keep', '', itemInfo(x.it) + ' <span class="alias">&rarr; for Slot ' + x.o.slot + ' once it can wear T' + x.it.tier + '</span>'); }).join('') +
         b.junk.map(function (x) { return li('Not useful', 'dim', itemInfo(x.it) + ' <span class="alias">&rarr; ' + junkWhy(x) + '</span>'); }).join('') +
         b.ign.map(function (x) { return li('Ignored slot', 'dim', itemInfo(x.it)); }).join('') +
-        b.other.map(function (x) { return li('Other', 'dim', '<b>' + esc(x.it.name && x.it.name !== '?' ? x.it.name : 'Item ' + x.it.id) + '</b> <span class="alias">(not gear: potion, material or special)</span>'); }).join('') +
+        b.other.map(function (x) { return x.it.essence ? li('Essence', 'dim', '<b>' + esc(x.it.name) + '</b> +' + (x.it.enhance || 0) + ' <span class="alias">&times;' + (1 + essOf(x.it)).toFixed(3) + ' ' + (x.it.slot === 10 ? 'Basic &amp; Skill Damage' : 'HP &amp; HP Regen') + '</span>') :
+          li('Other', 'dim', '<b>' + esc(x.it.name && x.it.name !== '?' ? x.it.name : 'Item ' + x.it.id) + '</b> <span class="alias">(not gear: potion, material or special)</span>'); }).join('') +
         '</ul></details>';
     }
     if (m.farmT >= 4) html += '<details><summary>All bonus lines ranked (T' + m.T + ')</summary><table>' + m.lines.map(function (l) {
@@ -2070,6 +2072,44 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     return '<span class="ico">&#127983;</span> <b>Raid sweep:</b> ' + ready.map(function (x) { return x.n + ' ' + x.cl + ' &times;' + x.left; }).join(', ') +
       ' <span class="alias">(instant, no fight; open the Money Bags before you quit)</span>';
   }
+  // ---- Essences (finding 19): value = b + p x enhance, its own multiplier: Yin-Yang x(1+Y) on Basic% and Skill%,
+  //      Vajra x(1+V) on HP and HP Regen. Enhance 5%, never breaks, 1 Fragment per try (5 per raid reward).
+  function essOf(it) { return it && it.essence ? it.essence.multiplier || 0 : 0; }
+  function ampGain(m, y0, y1) {   // damage ratio [boss, farm] when the Yin-Yang multiplier goes y0 -> y1
+    var h = D[m.hi], v = m.st.v, v2 = {}, k;
+    for (k in v) v2[k] = v[k];
+    v2.bT = v.bT * (1 + y1) / (1 + y0); v2.sT = v.sT * (1 + y1) / (1 + y0);
+    return ['boss', 'farm'].map(function (md) {
+      var a = C.damage(h, m.form, m.st.tier, md, C.derived(v, {})).total;
+      return a > 0 ? C.damage(h, m.form, m.st.tier, md, C.derived(v2, {})).total / a : 1;
+    });
+  }
+  function hpPct(v0, v1) { var r = (1 + v1) / (1 + v0) - 1; return '+' + (r * 100).toFixed(r >= 0.1 ? 0 : 1) + '% HP'; }
+  function essTodo(c, m) {   // a better Essence waiting in the bag
+    var out = [];
+    [[10, 'yy'], [9, 'vj']].forEach(function (p) {
+      var cur = essOf(m.eq[p[0]]), best = null;
+      (c.inventory || []).forEach(function (it) { if (it.slot === p[0] && essOf(it) > (best ? essOf(best) : cur) + 1e-9) best = it; });
+      if (!best) return;
+      var nv = essOf(best), txt = 'Equip <b>' + esc(best.name) + '</b> +' + (best.enhance || 0) + ' <span class="alias">&times;' + (1 + nv).toFixed(3) + '</span>';
+      if (p[1] === 'yy') { var g = ampGain(m, cur, nv); out.push([txt, g, (g[0] + g[1]) / 2]); }
+      else out.push([txt + ' <span class="alias">(Vajra: HP and HP Regen)</span>', null, 1 + 1e-6, 'HP', '<span class="pill hp">' + hpPct(cur, nv) + '</span>']);
+    });
+    return out;
+  }
+  function essHtml(c, m) {
+    if (!essOf(m.eq[9]) && !essOf(m.eq[10])) return '';   // nothing to show before the first Essence
+    var rows = [[10, 'Yin-Yang', 'Basic &amp; Skill Damage'], [9, 'Vajra', 'HP &amp; HP Regen']].map(function (p) {
+      var it = m.eq[p[0]];
+      if (!it || !it.essence) return p[1] + ': none <span class="alias">(drops from ' + p[1] + ' raids)</span>';
+      var lvl = (/\[(\d+)\]/.exec(it.name) || [])[1] || '?', v = essOf(it), step = 0.005 + 0.0015 * ((+lvl || 1) - 1), next;
+      if (p[1] === 'Yin-Yang') { var g = ampGain(m, v, v + step); next = pill(g); }
+      else next = '<span class="pill hp">' + hpPct(v, v + step) + '</span>';
+      return p[1] + ' [' + lvl + '] +' + (it.enhance || 0) + ': ' + p[2] + ' &times;' + (1 + v).toFixed(3) +
+        ' &middot; next +1: ' + next + ' <span class="alias">(~20 Fragments = 4 raid rewards)</span>';
+    });
+    return '<div class="ros-lbl">Essences</div><div class="ros-txt">' + rows.join('<br>') + '</div>';
+  }
   function raidHtml(c) {
     var rs = raidState(c); if (!rs) return '';
     var none = !rs[0].cl && !rs[1].cl;
@@ -2082,7 +2122,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     return '<div class="ros-lbl">Raids</div><div class="ros-txt">' + body + '</div>';
   }
   function detailsHtml(c, m) {
-    var html = '<div class="ros-stat">' + condLine(c) + '<br>' + rateLine(c) + '</div>' + raidHtml(c);
+    var html = '<div class="ros-stat">' + condLine(c) + '<br>' + rateLine(c) + '</div>' + raidHtml(c) + essHtml(c, m);
     var rem = remaining(c, m);
     if (rem) {
       html += '<div class="ros-lbl">Remaining at ' + lv(rem.t) + ' <span class="alias">&middot; ' + rem.done + ' of ' + rem.total + ' slots done</span></div>' +
@@ -2123,7 +2163,8 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
         b.given.map(function (x) { return li('Give to Slot ' + x.to.slot, 'give', itemInfo(x.it) + ' <span class="alias">&rarr; better for ' + esc(x.to.hero) + ' ' + why(x.x) + '</span>'); }).join('') +
         b.later.map(function (x) { return li('Keep', '', itemInfo(x.it) + ' <span class="alias">&rarr; for Slot ' + x.o.slot + ' once it can wear Lv ' + x.it.tier + '</span>'); }).join('') +
         b.junk.map(function (x) { return li('Not useful', 'dim', itemInfo(x.it) + ' <span class="alias">&rarr; ' + junkWhy(x) + '</span>'); }).join('') +
-        b.other.map(function (x) { return li('Other', 'dim', '<b>' + esc(x.it.name && x.it.name !== '?' ? x.it.name : 'Item ' + x.it.id) + '</b> <span class="alias">(not gear: potion, material or special)</span>'); }).join('') +
+        b.other.map(function (x) { return x.it.essence ? li('Essence', 'dim', '<b>' + esc(x.it.name) + '</b> +' + (x.it.enhance || 0) + ' <span class="alias">&times;' + (1 + essOf(x.it)).toFixed(3) + ' ' + (x.it.slot === 10 ? 'Basic &amp; Skill Damage' : 'HP &amp; HP Regen') + '</span>') :
+          li('Other', 'dim', '<b>' + esc(x.it.name && x.it.name !== '?' ? x.it.name : 'Item ' + x.it.id) + '</b> <span class="alias">(not gear: potion, material or special)</span>'); }).join('') +
         '</ul></details>';
     }
     if (m.farmT >= 4) html += '<details><summary>All bonus lines ranked (' + lv(m.T) + ')</summary><table>' + m.lines.map(function (l) {
