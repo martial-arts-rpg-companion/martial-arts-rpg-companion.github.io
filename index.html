@@ -2099,7 +2099,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   }
 
   // ================= AFK training (Expedition): best zone, rates, rank ETA, current run =================
-  var AFK = window.AFK_DATA || null, CLOCK0 = 1786665600;   // session clock base (L4605 minus 32400)
+  var AFK = window.AFK_DATA || null, CLOCK0 = 1786665600, SAVE_MS = 0;   // SAVE_MS = real time the save files were written   // session clock base (L4605 minus 32400)
   function dropMult(c) {   // Drop/Currency multiplier D = 1 + total bonus; the setting wins, else the account bonus keys in the save
     var el = $('ros-drop'), v = el && el.value !== '' ? parseFloat(el.value) : NaN;
     if (!isNaN(v)) return { D: 1 + v / 100, src: 'your setting' };
@@ -2135,6 +2135,16 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     if (nu != null && th[nu] != null && nu !== r + 1) out.push('next skill (' + esc(names[nu]) + ') in ~' + fmtH((th[nu] - (c.training || 0)) / rate));
     return out.join(' &middot; ');
   }
+  function finishTxt(now) {
+    if (now.done >= now.count) return '<div class="ros-txt"><b>&#10004; Finished</b>: load this character to collect.</div>';
+    var h = now.leftH, when = '';
+    if (SAVE_MS) {
+      var d = new Date(SAVE_MS + h * 3600000);
+      when = ' &asymp; <b>' + d.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' }) + '</b> if this game stays open';
+    }
+    var warn = h > 10 ? '<br><span class="warn-t">Longer than a normal session: progress only counts while a game is open and restarts with each new game. Cancel before you quit to keep what is done.</span>' : '';
+    return '<div class="ros-txt">&#9201;&#65039; Finishes in <b>~' + (h < 1 ? fmtH(h) : Math.round(h) + ' h' + (h >= 24 ? ' (' + (h / 24).toFixed(1) + ' days)' : '')) + '</b> of play' + when + warn + '</div>';
+  }
   function afkHtml(c) {
     if (!AFK) return '';
     var now = afkNow(c), best = afkBest(c), dm = dropMult(c), html = '<div class="ros-lbl">&#128164; AFK training</div>';
@@ -2142,7 +2152,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       var rn = now.st ? afkRates(now.st, dm.D) : null;
       html += '<div class="ros-txt"><b>Running:</b> <i>' + esc(now.st ? now.st.name : 'stage ' + c.afk.stage) + '</i> &middot; ' + now.done + ' of ' + now.count + ' rounds done at your last save' +
         ' &middot; ' + now.reserved + ' Condition reserved <span class="alias">(returned if you cancel)</span>' +
-        (rn ? '<br><span class="alias">+' + C.fmtNum(rn.tr) + ' Training/h &middot; ' + etaTxt(c, rn.tr) + '</span>' : '') + '</div>';
+        (rn ? '<br><span class="alias">+' + C.fmtNum(rn.tr) + ' Training/h &middot; ' + etaTxt(c, rn.tr) + '</span>' : '') + '</div>' + finishTxt(now);
       if (best && now.st && best.st.lctn !== now.st.lctn && best.r.tr > rn.tr * 1.01)
         html += '<div class="ros-txt">Better zone: <i>' + esc(best.st.name) + '</i> (+' + C.fmtNum(best.r.tr) + ' Training/h). Cancel and restart there.</div>';
     } else if (best) {
@@ -2263,7 +2273,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
         try { res = window.MASave.parseFiles(files); } catch (e) { res = null; }
         var half = !res || !(res.characters || []).length || (res.warnings || []).some(function (w) { return /checksum|missing chunk|no META/i.test(w); });
         if (half && !force) { status('&#8635; Game is saving&hellip; reading again in a moment'); return; }   // caught the game mid-write: keep the last good view
-        lastStamp = stamp;
+        lastStamp = stamp; SAVE_MS = stamp;
         if (res) show(res); else parseAndShow(files);
       }
       status('<span class="ok">&#10004; Save connected</span> &middot; last save ' + new Date(stamp).toLocaleTimeString() + ' <span class="alias">&middot; updates by itself</span>');
@@ -2300,6 +2310,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   }
   $('ros-files').addEventListener('change', function (ev) {
     var files = Array.prototype.slice.call(ev.target.files || []);
+    SAVE_MS = files.reduce(function (m, f) { return Math.max(m, f.lastModified || 0); }, 0);
     Promise.all(files.map(function (f) { return f.text().then(function (t) { return { name: f.name, text: t }; }); }))
       .then(function (arr) { parseAndShow(arr); status('Loaded ' + arr.length + ' files (pick them again after the next save).'); });
   });
