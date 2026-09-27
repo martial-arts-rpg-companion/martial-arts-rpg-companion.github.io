@@ -2434,7 +2434,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     });
   }
   function readDir(h, force) {
-    var files = [], stamp = 0;
+    var files = [], stamp = 0, same = false, nf = 0;
     function walk(dh) {
       var it = dh.values(), out = [];
       function next() {
@@ -2450,11 +2450,14 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     return h.getDirectoryHandle('MartialRPG').catch(function () { return h; }).then(function (dh) {
       return walk(dh);
     }).then(function (entries) {
-      return Promise.all(entries.map(function (e) {
-        return e.getFile().then(function (f) { stamp = Math.max(stamp, f.lastModified); return f.text().then(function (t) { files.push({ name: f.name, text: t }); }); });
-      }));
+      return Promise.all(entries.map(function (e) { return e.getFile(); }));
+    }).then(function (fs) {
+      nf = fs.length;
+      fs.forEach(function (f) { stamp = Math.max(stamp, f.lastModified); });
+      if (!force && nf && stamp === lastStamp) { same = true; return; }   // nothing new: skip reading
+      return Promise.all(fs.map(function (f) { return f.text().then(function (t) { files.push({ name: f.name, text: t }); }); }));
     }).then(function () {
-      if (!files.length) { status('No save files in that folder. Pick <code>CustomMapData\\MartialRPG</code>.'); return; }
+      if (!nf) { status('No save files in that folder. Pick <code>CustomMapData\\MartialRPG</code>.'); return; }
       if (force || stamp !== lastStamp) {
         var res = null;
         try { res = window.MASave.parseFiles(files); } catch (e) { res = null; }
@@ -2473,6 +2476,9 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       startPoll();
     });
   }
+  document.addEventListener('visibilitychange', function () {   // check at once when you come back to the tab
+    if (!document.hidden && dirHandle) readDir(dirHandle, false).catch(function () {});
+  });
   function pollSec() { var e = $('ros-poll'), v = e ? parseFloat(e.value) : NaN; return isFinite(v) ? Math.min(600, Math.max(1, v)) : 5; }
   function startPoll() {   // check the save folder every N seconds (Settings, default 5)
     if (timer) clearInterval(timer);
