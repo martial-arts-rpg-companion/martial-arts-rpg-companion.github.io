@@ -2079,6 +2079,12 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     add(b.later, '', null, function (x) { return 'keep: Slot ' + x.o.slot + ' can wear it later'; });
     add(b.given, 'give', function (x) { return 'S' + x.to.slot; }, function (x) { return 'give to Slot ' + x.to.slot + ' (' + x.to.hero + ')'; });
     add(b.up, 'junk', null, function () { return 'a better one for this slot is marked'; });
+    var ej = 0;
+    inv.forEach(function (it) {
+      if (!it.essence || essOf(it) > essOf(m.eq[it.slot]) + 1e-9) return;
+      if (it.bound_slot) { st[it.index] = { cls: 'junk', why: 'weaker than your worn Essence: safe to discard' }; ej++; }
+      else st[it.index] = { cls: '', why: 'weaker than your worn Essence (unbound: another character could use it)' };
+    });
     var eqN = {};
     acts.forEach(function (x) { if (x.bag) { st[x.bag.index] = { cls: 'up', badge: x.n, why: 'equip (' + x.n + ')' }; eqN[x.bag.slot] = x.n; } });
     var last = 0; inv.forEach(function (it) { if (it.index > last) last = it.index; });
@@ -2086,8 +2092,8 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     inv.forEach(function (it) { by[it.index] = it; });
     for (var i = 0; i < cells; i++) { var it = by[i], s = it ? st[it.index] || {} : {}; g += bmCell(it, s.cls, s.badge, it ? it.name + ' (' + RAR[(it.rarity || 1) - 1] + ')' + (s.why ? ': ' + s.why : '') : ''); }
     var e = '';
-    [1, 2, 3, 4, 5, 6, 7, 8].forEach(function (s) { var it = m.eq[s]; e += it ? bmCell(it, eqN[s] ? 'out' : '', eqN[s] || '', SLOTN[s] + ': ' + it.name + (eqN[s] ? ' (take off for ' + eqN[s] + ')' : '')) : '<span class="bm-c empty" title="' + SLOTN[s] + ': empty"></span>'; });
-    var n = { up: acts.filter(function (x) { return x.bag; }).length, give: (b.given || []).length, junk: (b.junk || []).length + (b.up || []).length - acts.filter(function (x) { return x.bag; }).length };
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach(function (s) { var it = m.eq[s]; e += it ? bmCell(it, eqN[s] ? 'out' : '', eqN[s] || '', (s === 9 ? 'Vajra Essence' : s === 10 ? 'Yin-Yang Essence' : SLOTN[s]) + ': ' + it.name + (eqN[s] ? ' (take off for ' + eqN[s] + ')' : '')) : '<span class="bm-c empty" title="' + (s === 9 ? 'Vajra Essence' : s === 10 ? 'Yin-Yang Essence' : SLOTN[s]) + ': empty"></span>'; });
+    var n = { up: acts.filter(function (x) { return x.bag; }).length, give: (b.given || []).length, junk: (b.junk || []).length + (b.up || []).length - acts.filter(function (x) { return x.bag && !x.bag.essence; }).length + ej };
     return '<details class="bagmap"' + (n.up || n.give ? ' open' : '') + '><summary>&#127890; Bag map <span class="alias">(' +
       [n.up ? n.up + ' to equip' : '', n.give ? n.give + ' to give' : '', n.junk ? n.junk + ' safe to discard' : ''].filter(Boolean).join(' &middot; ') + ')</span></summary>' +
       '<div class="bm-lbl alias">Worn (numbered = take off)</div><div class="bm-grid eq">' + e + '</div>' +
@@ -2150,6 +2156,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       var nv = essOf(best), txt = 'Equip <b>' + esc(best.name) + '</b> +' + (best.enhance || 0) + ' <span class="alias">&times;' + (1 + nv).toFixed(3) + '</span>';
       if (p[1] === 'yy') { var g = ampGain(m, cur, nv); out.push([txt, g, (g[0] + g[1]) / 2]); }
       else out.push([txt + ' <span class="alias">(Vajra: HP and HP Regen)</span>', null, 1 + 1e-6, 'HP', '<span class="pill hp">' + hpPct(cur, nv) + '</span>']);
+      out[out.length - 1].bag = best;
     });
     return out;
   }
