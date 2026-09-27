@@ -2034,7 +2034,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     if (/^Enhance/.test(t)) return '&#128296;';
     if (x[3] === 'Trade') return '&#9878;&#65039;';
     if (x[3] === 'HP') return '&#10084;&#65039;';
-    if (x[3] === 'free') return '&#10024;';
+    if (x[3] === 'free') return x[4] && /pill hp/.test(x[4]) ? '&#10084;&#65039;' : (x[4] && /dmg/.test(x[4]) ? '&#9876;&#65039;' : '&#10024;');   // icon follows the gain
     return '&#9876;&#65039;';
   }
   function actLi(x, big) { return '<li' + (big ? ' class="big"' : '') + '><span class="ico">' + icon(x) + '</span> ' + actPill(x) + ' ' + x[0] + '</li>'; }
