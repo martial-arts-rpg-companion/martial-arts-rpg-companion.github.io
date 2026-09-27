@@ -1442,7 +1442,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     var profiles = [], characters = [], shared = [];
     Object.keys(byProfile).forEach(function (h) {
       var p = byProfile[h];
-      if (!p.checksums_ok) warnings.push("checksum mismatch for profile " + h + " (file edited?) - read anyway");
+      if (!p.checksums_ok) warnings.push("checksum mismatch for profile " + h + " - read anyway");
       var chars = readCharacters(p.vals, items);
       chars.forEach(function (c) { c.profile = int(h); characters.push(c); });
       var sb = [];
