@@ -2311,7 +2311,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       if (best && now.st && best.st.lctn !== now.st.lctn && best.r.tr > rn.tr * 1.01)
         html += '<div class="ros-txt">Better zone: <i>' + esc(best.st.name) + '</i> (+' + C.fmtNum(best.r.tr) + ' Training/h). Cancel and restart there.</div>';
     } else if (best) {
-      html += '<div class="ros-txt"><b>Best zone:</b> <i>' + esc(best.st.name) + '</i><br>+' + C.fmtNum(best.r.tr) + ' Training/h &middot; +' + C.fmtNum(best.r.cur) + ' Currency/h &middot; ' +
+      html += '<div class="ros-txt"><b>Best zone:</b> <i>' + esc(best.st.name) + '</i><br>+' + C.fmtNum(best.r.tr) + ' Training/h &middot; <span title="AFK training pays a fixed Currency amount per round: your Drop/Currency bonus does not change it (it does change Training and Boss Tickets)">+' + C.fmtNum(best.r.cur) + ' Currency/h</span> &middot; ' +
         best.r.tk.toFixed(2) + ' Boss Tickets/h<br><span class="alias">' + etaTxt(c, best.r.tr) + '</span></div>';
     } else {
       html += '<div class="ros-txt alias">Locked: clear a Training stage in <b>Time Attack</b> (solo, within 120 s) to send this character on AFK training.</div>';
