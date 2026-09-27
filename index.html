@@ -1771,13 +1771,14 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(' + freeTxt(u.x) + ')</span>', null, u.x.avg, 'free', freePill(u.x)]);
       else if (u.x.kind === 'trade') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
       else a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
-      if (a.length > n0) a[a.length - 1].bag = u.it;
+      if (a.length > n0) { a[a.length - 1].bag = u.it; a[a.length - 1].hr = u.x.hr; }
     });
     bestPer(c._bag.share).forEach(function (u) {
       var k = u.x.kind, why = k === 'dmg' ? '' : (k === 'free' ? ' <span class="alias">(' + freeTxt(u.x) + ')</span>' :
         (k === 'trade' ? ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr) : ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ')'));
       a.push(['Take ' + itemInfo(u.it) + wornTxt(m, u.it) + ' from ' + (u.from.slot ? 'Slot ' + u.from.slot + '&rsquo;s bag' : 'the <b>Share bag</b>') + why +
         (u.from.slot ? ' (unbound: right-click &rarr; share)' : ''), k === 'dmg' ? u.x.g : null, u.x.avg, k === 'dmg' ? null : (k === 'free' ? 'free' : (k === 'trade' ? 'Trade' : 'HP')), k === 'free' ? freePill(u.x) : null]);
+      a[a.length - 1].hr = u.x.hr;
     });
     if (m.enh && withEnh()) a.push(['Enhance <b>' + esc(m.eq[1].name) + '</b> to +' + ((m.eq[1].enhance || 0) + 1) + ' <span class="alias">(' + enhCost(m.eq[1]) + ' per try)</span>', m.enh.g, m.enh.avg]);
     a = a.concat(essTodo(c, m));
@@ -2067,8 +2068,12 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     return n ? t : null;
   }
   function totalPill(acts) {
-    var t = totalGain(acts); if (!t) return '';
-    return pill(t).replace('<span class="pill"', '<span class="pill" title="All waiting damage upgrades together (boss ' + C.pctTxt(t[0]) + ' / farm ' + C.pctTxt(t[1]) + ')"');
+    var t = totalGain(acts), h = [1, 1], out = '';
+    if (t) out = pill(t).replace('<span class="pill"', '<span class="pill" title="All waiting damage upgrades together (boss ' + C.pctTxt(t[0]) + ' / farm ' + C.pctTxt(t[1]) + ')"');
+    (acts || []).forEach(function (x) { if (x.hr) { h[0] *= x.hr[0] || 1; h[1] *= x.hr[1] || 1; } });
+    var ht = hpTxt(h);
+    if (ht) out += (out ? ' ' : '') + '<span class="pill hp" title="All waiting upgrades together">' + ht + '</span>';
+    return out;
   }
   function actLi(x, big) { return '<li' + (big ? ' class="big"' : '') + '><span class="ico">' + icon(x) + '</span> ' + actPill(x) + ' ' + (x.n ? '<span class="bm-n in">' + x.n + '</span> ' : '') + x[0] + '</li>'; }
 
@@ -2171,6 +2176,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       if (p[1] === 'yy') { var g = ampGain(m, cur, nv); out.push([txt, g, (g[0] + g[1]) / 2]); }
       else out.push([txt + ' <span class="alias">(Vajra: HP and HP Regen)</span>', null, 1 + 1e-6, 'HP', '<span class="pill hp">' + hpPct(cur, nv) + '</span>']);
       out[out.length - 1].bag = best;
+      if (p[1] !== 'yy') out[out.length - 1].hr = [(1 + nv) / (1 + cur), (1 + nv) / (1 + cur)];
     });
     return out;
   }
