@@ -217,7 +217,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
     <details class="settings"><summary>&#9881;&#65039; Settings</summary>
       <div class="set-grid">
         <label>View <select id="ros-mode"><option value="simple">Simple</option><option value="detailed">Detailed</option></select></label>
-        <label title="Only if a character dies or loses its buffs in its zone">Survival <select id="ros-surv"><option value="0">Off</option><option value="0.25">Some</option><option value="0.5">A lot</option></select></label>
+        <label title="Only if a character dies or loses its buffs in its zone">Survival <select id="ros-surv"><option value="0">Off</option><option value="0.25">Some (&frac14;)</option><option value="0.5">A lot (&frac12;)</option><option value="0.75">Heavy (&frac34;)</option><option value="1">Equal (1:1)</option></select></label>
         <label><input type="checkbox" id="ros-enh"> Include enhancing</label>
         <label title="A box listing new items, rank-ups and new wearable levels since you last clicked Seen"><input type="checkbox" id="ros-chg"> Show &ldquo;what changed&rdquo;</label>
         <label title="Chat -1 shows 'Current TOTAL: Drop/Currency +X%'. Used for AFK training. Empty = estimate from your save.">Drop/Currency bonus <input id="ros-drop" type="number" min="0" step="1" placeholder="auto" style="width:5em"> %</label>
@@ -398,6 +398,8 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
     <ul>
       <li><b>Some</b>: HP counts a little (1% more HP &asymp; &frac14; of 1% more damage).</li>
       <li><b>A lot</b>: HP counts more (1% more HP &asymp; &frac12; of 1% more damage).</li>
+      <li><b>Heavy</b>: 1% more HP &asymp; &frac34; of 1% more damage.</li>
+      <li><b>Equal (1:1)</b>: 1% more HP counts the same as 1% more damage. Only if survival is your real wall.</li>
     </ul>
     It then also suggests HP / HP Regen upgrades and <b>Trade</b> items that lose a little damage for a lot of HP. The &ldquo;+x% HP&rdquo; is measured against your character's real total HP, so early armor upgrades show big numbers and late ones small.<br>
     <b>Blood Cult</b> benefits most: its skills cost its own HP, and Bloodburst switches off below 20% HP.<br>
