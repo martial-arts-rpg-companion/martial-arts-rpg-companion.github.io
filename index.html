@@ -218,6 +218,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
       <div class="set-grid">
         <label>View <select id="ros-mode"><option value="simple">Simple</option><option value="detailed">Detailed</option></select></label>
         <label title="Only if a character dies or loses its buffs in its zone">Survival <select id="ros-surv"><option value="0">Off</option><option value="0.25">Some (&frac14;)</option><option value="0.5">A lot (&frac12;)</option><option value="0.75">Heavy (&frac34;)</option><option value="1">Equal (1:1)</option><option value="c">Custom</option></select> <input id="ros-surv-c" type="number" min="0" max="5" step="0.05" placeholder="0-5" hidden style="width:4.5em" title="How many % damage 1% more HP is worth. 0.5 = half, 1 = equal, 2 = double"></label>
+        <label id="ros-regen-l" hidden title="How much 1% more HP Regen is worth compared to 1% more HP. Empty = auto: 0.5, Blood Cult 1">HP Regen vs HP <input id="ros-regen" type="number" min="0" max="2" step="0.05" placeholder="auto" style="width:4.5em"></label>
         <label><input type="checkbox" id="ros-enh"> Include enhancing</label>
         <label title="A box listing new items, rank-ups and new wearable levels since you last clicked Seen"><input type="checkbox" id="ros-chg"> Show &ldquo;what changed&rdquo;</label>
         <label title="In game type -1: the line &quot;Current TOTAL: Drop/Currency +X%&quot; is one number for both drops and currency. Only needed in group lobbies: the lobby bonus is not in the save.">Drop/Currency % from <code>-1</code> <input id="ros-drop" type="number" min="0" step="1" placeholder="auto" style="width:5em"></label>
@@ -403,6 +404,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
       <li><b>Custom</b>: type your own number, 0 to 5. It is how many % damage 1% more HP is worth (2 = HP counts double).</li>
     </ul>
     It then also suggests HP / HP Regen upgrades and <b>Trade</b> items that lose a little damage for a lot of HP. The &ldquo;+x% HP&rdquo; is measured against your character's real total HP, so early armor upgrades show big numbers and late ones small.<br>
+    <b>HP Regen</b> counts half as much as HP (it helps over time, not against big hits). Blood Cult counts it the same as HP, since Regen refills what its skills spend. Change it under Settings &rarr; <b>HP Regen vs HP</b> (shows when Survival is on).<br>
     <b>Blood Cult</b> benefits most: its skills cost its own HP, and Bloodburst switches off below 20% HP.<br>
     <b>Not dying? Leave it Off.</b> Extra HP doesn't make you kill faster.
   </div>
@@ -1539,9 +1541,13 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     var kitb = (K.heroes[c.hero_id] || {}).base || {}, fac = (K.training.factor || [])[c.rank_tier || 0] || 1, tr = c.training || 0;
     var hpF = (kitb.hp || 0) + tr * 2 * fac + ((c.gear || {}).hp || 0), hprF = tr * 0.05 * fac + ((c.gear || {}).hpr || 0);
     return { hi: hi, form: f[1], st: st, eq: eq, gain: gain, T: T, R: R, lines: lines, enh: enh, mt: mt, farmT: farmT, hpF: hpF, hprF: hprF,
-      sw: survW() * (c.hero_id === 'H00W' ? 1.5 : 1) };
+      sw: survW() * (c.hero_id === 'H00W' ? 1.5 : 1), rw: regenW(c) };
   }
 
+  function regenW(c) {   // HP Regen worth vs HP: setting, else Blood Cult 1 (skills cost its HP), others 1/2
+    var e = document.getElementById('ros-regen'), v = e && e.value !== '' ? parseFloat(e.value) : NaN;
+    return isFinite(v) ? Math.min(2, Math.max(0, v)) : (c.hero_id === 'H00W' ? 1 : 0.5);
+  }
   function survW() {
     var e = document.getElementById('ros-surv'); if (!e) return 0;
     if (e.value === 'c') { var c = document.getElementById('ros-surv-c'), v = c ? parseFloat(c.value) : NaN; return isFinite(v) ? Math.min(5, Math.max(0, v)) : 0; }
@@ -1551,7 +1557,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     var a = surv(cur), b = surv(it);
     return [m.hpF > 0 ? (m.hpF + b.hp - a.hp) / m.hpF : 1, m.hprF > 0 ? (m.hprF + b.hpr - a.hpr) / m.hprF : 1];
   }
-  function survScore(m, dmgAvg, hr) { return dmgAvg * Math.pow(Math.max(hr[0], 0.01), m.sw) * Math.pow(Math.max(hr[1], 0.01), m.sw / 2); }
+  function survScore(m, dmgAvg, hr) { return dmgAvg * Math.pow(Math.max(hr[0], 0.01), m.sw) * Math.pow(Math.max(hr[1], 0.01), m.sw * m.rw); }
   function freeTxt(x) {   // free item: what it adds + how much better it is right now
     var v = ((x.dmg || 1) - 1) * 100, p = [], h = x.hr ? hpTxt(x.hr) : '';
     if (v >= 0.05) p.push('<b>+' + (v >= 1 ? v.toFixed(1) : v.toFixed(2)) + '% dmg</b>');
@@ -2381,9 +2387,14 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       var sc = $('ros-surv-c');
       try { var v = localStorage.getItem('ma-calc-surv'); if (v != null) sv.value = v; if (sc) sc.value = localStorage.getItem('ma-calc-surv-c') || ''; } catch (x) {}
       if (sc) sc.hidden = sv.value !== 'c';
+      var rg = $('ros-regen'), rgl = $('ros-regen-l');
+      try { if (rg) rg.value = localStorage.getItem('ma-calc-regen') || ''; } catch (x) {}
+      if (rgl) rgl.hidden = sv.value === '0';
+      if (rg) rg.addEventListener('change', function () { try { localStorage.setItem('ma-calc-regen', rg.value); } catch (x) {} if (lastRes) show(lastRes); });
       sv.addEventListener('change', function () {
         try { localStorage.setItem('ma-calc-surv', sv.value); } catch (x) {}
         if (sc) { sc.hidden = sv.value !== 'c'; if (!sc.hidden) sc.focus(); }
+        if (rgl) rgl.hidden = sv.value === '0';
         if (lastRes) show(lastRes);
       });
       if (sc) sc.addEventListener('change', function () { try { localStorage.setItem('ma-calc-surv-c', sc.value); } catch (x) {} if (lastRes) show(lastRes); });
