@@ -1348,7 +1348,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
         afk_time_bank: Math.min(Math.max(int(vals[p + "FTG"]), 0), 6600),
         field_progress_LCTN: int(vals[p + "LCTN"]), boss_field_LCB: int(vals[p + "LCB"]),
         best_time_attack_LCTA: int(vals[p + "LCTA"]), skin: int(vals[p + "SKN"]),
-        size: parseFloat(vals[p + "SZ"]) || 1, last_save: int(vals[p + "LSP"]) || int(vals["LSP"]), acct_unlocks: int(vals["CUL"]), afk: vals[p + "AFKS"] ? {stage: int(String(vals[p + "AFKS"]).split(";")[0]), count: int(String(vals[p + "AFKS"]).split(";")[1]), end: int(vals[p + "AFKE"])} : null, bonus: {tier: int(vals["VPL"]), t1: int(vals["VSE"]), t2: int(vals["VGE"]), lvl: int(vals["VRL"])}, equipped: [], inventory: [], gear: {}, essence_mult: {}};
+        size: parseFloat(vals[p + "SZ"]) || 1, last_save: int(vals[p + "LSP"]) || int(vals["LSP"]), acct_unlocks: int(vals["CUL"]), afk: vals[p + "AFKS"] ? {stage: int(String(vals[p + "AFKS"]).split(";")[0]), count: int(String(vals[p + "AFKS"]).split(";")[1]), end: int(vals[p + "AFKE"])} : null, raid: {cl: [int(vals[p + "LCR"]), int(vals[p + "LCR2"])], used: [int(vals[p + "RDP1"] || vals["RDP1"]), int(vals[p + "RDP2"] || vals["RDP2"])], start: [int(vals[p + "RRT1"] || vals["RRT1"]), int(vals[p + "RRT2"] || vals["RRT2"])], miss: [int(vals[p + "RNDC1"] || vals["RNDC1"]), int(vals[p + "RNDC2"] || vals["RNDC2"])], play: int(vals[p + "QPT"] || vals["QPT"])}, bonus: {tier: int(vals["VPL"]), t1: int(vals["VSE"]), t2: int(vals["VGE"]), lvl: int(vals["VRL"])}, equipped: [], inventory: [], gear: {}, essence_mult: {}};
       STAT_KEYS.slice(1).forEach(function (k) { c.gear[k] = 0; });
       var lctn = c.field_progress_LCTN, lcb = c.boss_field_LCB;
       for (var i = 0; i < 12; i++) {                        // IE index = slot (oldLevel) - 1
@@ -1590,10 +1590,10 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   function surv(it) { var h = 0, r = 0; (it ? (it.main || []).concat(it.subs || []) : []).forEach(function (x) { if (x.stat === 'hp') h += x.value || 0; if (x.stat === 'hpr') r += x.value || 0; }); return { hp: h, hpr: r }; }
   function wornTxt(m, it) {   // which worn item the bag item replaces
     var w = m && m.eq ? m.eq[it.slot] : null;
-    if (!w) return '';
+    if (!w || (it.slot !== 7 && it.slot !== 8)) return '';   // only rings need it: two ring slots
     var ln = (w.main || []).concat((w.subs || []).map(function (x) { return { stat: x.stat, value: x.value, b: 1 }; }))
       .filter(function (x) { return STATN[x.stat]; }).map(function (x) { return (x.b ? '[Bonus] ' : '') + STATN[x.stat] + ' ' + fmtVal(x.stat, x.value); }).join(', ');
-    return ' <span class="alias">instead of ' + esc(w.name) + ' <span class="rar r' + (w.rarity || 1) + '">Lv ' + (w.tier || '?') + ' ' + RAR[(w.rarity || 1) - 1] + '</span>' + (ln ? ' (' + ln + ')' : '') + '</span>';
+    return ' <span class="alias">&rarr; swap out the ' + SLOTN[it.slot] + (ln ? ' (' + ln + ')' : '') + '</span>';
   }
   function itemInfo(it) {
     var lines = (it.main || []).concat((it.subs || []).map(function (x) { return { stat: x.stat, value: x.value, b: 1 }; }))
@@ -1740,10 +1740,10 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       return Object.keys(by).map(function (k) { return by[k]; });
     };
     bestPer(c._bag.up).forEach(function (u) {
-      if (u.x.kind === 'dmg') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span>', u.x.g, u.x.avg]);
-      else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span> (' + freeTxt(u.x) + ')', null, u.x.avg, 'free']);
-      else if (u.x.kind === 'trade') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span>: trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
-      else a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(bag)</span> for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
+      if (u.x.kind === 'dmg') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it), u.x.g, u.x.avg]);
+      else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' (' + freeTxt(u.x) + ')', null, u.x.avg, 'free']);
+      else if (u.x.kind === 'trade') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
+      else a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
     });
     bestPer(c._bag.share).forEach(function (u) {
       var k = u.x.kind, why = k === 'dmg' ? '' : (k === 'free' ? ' (' + freeTxt(u.x) + ')' :
@@ -2049,8 +2049,36 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     return '';
   }
 
+  // ---- raids: 3 rewards per type per 5 h of playtime; a difficulty cleared solo is swept instantly (finding 17)
+  var RAIDN = ['Vajra', 'Yin-Yang'];
+  function raidState(c) {
+    var r = c.raid; if (!r) return null;
+    return [0, 1].map(function (i) {
+      var used = r.used[i] || 0, el = (r.play || 0) - (r.start[i] || 0), fresh = !used || el >= 18000;
+      return { n: RAIDN[i], cl: r.cl[i] || 0, left: fresh ? 3 : Math.max(0, 3 - used), reset: fresh ? 0 : (18000 - el) / 3600,
+               chance: 0.8 * dropMult(c).D * (1 + 0.08 * (r.miss[i] || 0)), miss: r.miss[i] || 0 };
+    });
+  }
+  function raidTodo(c) {   // Do-this-next line: rewards ready on a difficulty already cleared solo
+    var rs = raidState(c); if (!rs) return '';
+    var ready = rs.filter(function (x) { return x.cl > 0 && x.left > 0; });
+    if (!ready.length) return '';
+    return '<span class="ico">&#127983;</span> <b>Raid sweep:</b> ' + ready.map(function (x) { return x.n + ' ' + x.cl + ' &times;' + x.left; }).join(', ') +
+      ' <span class="alias">(instant, no fight; open the Money Bags before you quit)</span>';
+  }
+  function raidHtml(c) {
+    var rs = raidState(c); if (!rs) return '';
+    var none = !rs[0].cl && !rs[1].cl;
+    var body = none ? 'None cleared solo yet. Start with <b>Vajra 1</b>; one solo clear lets you sweep it instantly after.' :
+      rs.map(function (x) {
+        if (!x.cl) return x.n + ': not cleared' + (x.n === 'Yin-Yang' ? ' <span class="alias">(Yin-Yang 1 = Vajra 5 strength)</span>' : '');
+        return x.n + ' <b>' + x.cl + '</b> &middot; ' + x.left + '/3 rewards left' + (x.left < 3 ? ' <span class="alias">(full again in ~' + fmtH(x.reset) + ' of play)</span>' : '') +
+          ' &middot; <span title="' + x.miss + ' misses so far; each miss adds 8% of the base chance">Essence ' + x.chance.toFixed(2) + '%</span>' + (x.cl < (x.n === 'Vajra' ? 15 : 11) ? ' &middot; next: try ' + x.n + ' ' + (x.cl + 1) : ' &middot; max level');
+      }).join('<br>');
+    return '<div class="ros-lbl">Raids</div><div class="ros-txt">' + body + '</div>';
+  }
   function detailsHtml(c, m) {
-    var html = '<div class="ros-stat">' + condLine(c) + '<br>' + rateLine(c) + '</div>';
+    var html = '<div class="ros-stat">' + condLine(c) + '<br>' + rateLine(c) + '</div>' + raidHtml(c);
     var rem = remaining(c, m);
     if (rem) {
       html += '<div class="ros-lbl">Remaining at ' + lv(rem.t) + ' <span class="alias">&middot; ' + rem.done + ' of ' + rem.total + ' slots done</span></div>' +
@@ -2120,6 +2148,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     if (!top) body += '<li class="big">' + (nl || 'Nothing to do right now.') + '</li>';
     acts.slice(1, 3).forEach(function (x) { body += actLi(x, false); });
     if (top && nl) body += '<li>' + nl + '</li>';
+    var rt = raidTodo(c); if (rt) body += '<li>' + rt + '</li>';
     body += '</ul>';
     body += afkHtml(c);
     var more = simpleMode() ? !!MORE[c.slot] : true;
