@@ -220,7 +220,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
         <label title="Only if a character dies or loses its buffs in its zone">Survival <select id="ros-surv"><option value="0">Off</option><option value="0.25">Some (&frac14;)</option><option value="0.5">A lot (&frac12;)</option><option value="0.75">Heavy (&frac34;)</option><option value="1">Equal (1:1)</option></select></label>
         <label><input type="checkbox" id="ros-enh"> Include enhancing</label>
         <label title="A box listing new items, rank-ups and new wearable levels since you last clicked Seen"><input type="checkbox" id="ros-chg"> Show &ldquo;what changed&rdquo;</label>
-        <label title="Chat -1 shows 'Current TOTAL: Drop/Currency +X%'. Used for AFK training. Empty = estimate from your save.">Drop/Currency bonus <input id="ros-drop" type="number" min="0" step="1" placeholder="auto" style="width:5em"> %</label>
+        <label title="In game type -1: the line &quot;Current TOTAL: Drop/Currency +X%&quot; is one number for both drops and currency. Only needed in group lobbies: the lobby bonus is not in the save.">Drop/Currency % from <code>-1</code> <input id="ros-drop" type="number" min="0" step="1" placeholder="auto" style="width:5em"></label>
         <div class="ign-row"><span>Ignore slots:</span><span id="ros-ign"></span></div>
         <label class="btn ghost">Pick save files instead<input type="file" id="ros-files" multiple accept=".pld" hidden></label>
       </div>
@@ -2102,13 +2102,13 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   var AFK = window.AFK_DATA || null, CLOCK0 = 1786665600, SAVE_MS = 0;   // SAVE_MS = real time the save files were written   // session clock base (L4605 minus 32400)
   function dropMult(c) {   // Drop/Currency multiplier D = 1 + total bonus; the setting wins, else the account bonus keys in the save
     var el = $('ros-drop'), v = el && el.value !== '' ? parseFloat(el.value) : NaN;
-    if (!isNaN(v)) return { D: 1 + v / 100, src: 'your setting' };
+    if (!isNaN(v)) return { D: 1 + v / 100, src: 'your <code>-1</code> total from Settings' };
     var vp = c.bonus || {}, t = vp.tier || 0, d = 0;
     if (t > 0) d += t <= 4 ? 0.10 * t : (t <= 7 ? 0.4 + (t - 4) * 0.2 : (t <= 10 ? 1.0 + (t - 7) * 0.3 : (t <= 13 ? 1.9 + (t - 10) * 0.4 : 3.1 + (t - 13) * 0.45)));
     if ((vp.t1 || 0) > (c.last_save || 0)) d += 0.25;
     if ((vp.t2 || 0) > (c.last_save || 0)) d += 0.50;
     if ((vp.lvl || 0) > 0) d += 0.06 * vp.lvl;
-    return { D: 1 + d, src: d ? 'bonus found in your save; lobby bonus not included' : 'no bonus found; set yours in Settings' };
+    return { D: 1 + d, src: (d ? 'bonus found in your save' : 'no bonus in your save') + '; lobby bonus not included, in a group lobby set your <code>-1</code> Drop/Currency total in Settings' };
   }
   function afkStage(n) { return AFK ? (AFK.stages || []).filter(function (x) { return x.lctn === n; })[0] : null; }
   function afkRates(st, D) {
