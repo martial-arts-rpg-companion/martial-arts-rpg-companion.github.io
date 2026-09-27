@@ -1759,33 +1759,77 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   }
 
   // ordered "do now" actions: [text, gain pair or null, sort value, pill text override]
+  function evalSwap(om, cur, it) {   // same rules as the bag scan, for one item against what is worn
+    var g = om.gain(delta(cur, it)), avg = (g[0] + g[1]) / 2;
+    var sa = surv(it), sb = surv(cur), dhp = sa.hp - sb.hp, dhr = sa.hpr - sb.hpr;
+    var free = freeGain(cur, it), hr = hpRatio(om, cur, it), sc = survScore(om, avg, hr), kind = null;
+    if (avg > 1.003 && sc > 1.003) kind = 'dmg';
+    else if (free) kind = 'free';
+    else if (om.sw > 0 && sc > 1.003) kind = avg < 0.997 ? 'trade' : 'surv';
+    else if (avg >= 0.997 && (dhp > 0 || dhr > 0) && dhp >= 0 && dhr >= 0) kind = 'surv';
+    if (!kind) return null;
+    var score = kind === 'dmg' ? sc : (om.sw > 0 ? Math.max(sc, 1 + 1e-6) : (kind === 'free' ? 1 + 2e-6 : 1 + 1e-6));
+    return { g: g, avg: score, kind: kind, dhp: dhp, dhr: dhr, free: free, hr: hr, dmg: avg };
+  }
+  function simEquip(c, it) {   // the character after putting it on (gear totals updated, old item off)
+    var old = null, eq = [];
+    (c.equipped || []).forEach(function (e) { if (e.slot === it.slot && e.gate_ok !== false) old = e; else eq.push(e); });
+    eq.push(Object.assign({}, it, { gate_ok: true }));
+    var gear = {}, k, a = statsOfItem(old), b = statsOfItem(it);
+    for (k in (c.gear || {})) gear[k] = c.gear[k];
+    for (k in a) gear[k] = (gear[k] || 0) - a[k];
+    for (k in b) gear[k] = (gear[k] || 0) + b[k];
+    return Object.assign({}, c, { equipped: eq, gear: gear });
+  }
+  function planSwaps(c, m) {   // ordered swaps; each gain is measured after the earlier swaps are done
+    var b = c._bag, cands = [];
+    (b.up || []).concat(b.junk || []).forEach(function (u) {
+      var it = u.it; if (!it.slot || GEARSLOTS.indexOf(it.slot) < 0 || ign(it.slot) || (it.tier || 0) > m.mt) return;
+      cands.push({ it: it, from: null });
+    });
+    (b.share || []).forEach(function (u) { if ((u.it.tier || 0) <= m.mt) cands.push({ it: u.it, from: u.from }); });
+    var cur = c, mm = m, steps = [], used = [];
+    for (var step = 0; step < 12; step++) {
+      var best = null;
+      cands.forEach(function (cd, i) {
+        if (used[i]) return;
+        var x = evalSwap(mm, mm.eq[cd.it.slot], cd.it);
+        if (x && (!best || x.avg > best.x.avg)) best = { i: i, cd: cd, x: x };
+      });
+      if (!best) break;
+      used[best.i] = true;
+      steps.push({ it: best.cd.it, from: best.cd.from, x: best.x });
+      cur = simEquip(cur, best.cd.it);
+      var m2 = model(cur); if (!m2) break;
+      mm = m2;
+    }
+    return steps;
+  }
   function actions(c, m) {
     var a = [];
     var empty = GEARSLOTS.slice(0, 6).filter(function (s) { return !ign(s) && !m.eq[s] && !c._bag.up.some(function (u) { return u.it.slot === s; }); });
     if (empty.length) a.push(['Fill empty slots: <b>' + empty.map(function (s) { return SLOTN[s]; }).join(', ') + '</b> (any item helps' + (empty.indexOf(1) >= 0 ? ', weapon first' : '') + ')', null, 50]);
-    var bestPer = function (list) {   // one suggestion per gear slot: the best item for it
-      var by = {};
-      list.forEach(function (u) { var k = u.it.slot; if (!by[k] || u.x.avg > by[k].x.avg) by[k] = u; });
-      return Object.keys(by).map(function (k) { return by[k]; });
-    };
-    bestPer(c._bag.up).forEach(function (u) {
-      var n0 = a.length;
-      if (u.x.kind === 'dmg') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it), u.x.g, u.x.avg]);
-      else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(' + freeTxt(u.x) + ')</span>', null, u.x.avg, 'free', freePill(u.x)]);
-      else if (u.x.kind === 'trade') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
-      else a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
-      if (a.length > n0) { a[a.length - 1].bag = u.it; a[a.length - 1].hr = u.x.hr; }
-    });
-    bestPer(c._bag.share).forEach(function (u) {
-      var k = u.x.kind, why = k === 'dmg' ? '' : (k === 'free' ? ' <span class="alias">(' + freeTxt(u.x) + ')</span>' :
-        (k === 'trade' ? ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr) : ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ')'));
-      a.push(['Take ' + itemInfo(u.it) + wornTxt(m, u.it) + ' from ' + (u.from.slot ? 'Slot ' + u.from.slot + '&rsquo;s bag' : 'the <b>Share bag</b>') + why +
-        (u.from.slot ? ' (unbound: right-click &rarr; share)' : ''), k === 'dmg' ? u.x.g : null, u.x.avg, k === 'dmg' ? null : (k === 'free' ? 'free' : (k === 'trade' ? 'Trade' : 'HP')), k === 'free' ? freePill(u.x) : null]);
-      a[a.length - 1].hr = u.x.hr;
+    planSwaps(c, m).forEach(function (u) {   // in plan order: do them one after another
+      var n0 = a.length, k = u.x.kind;
+      if (!u.from) {
+        if (k === 'dmg') a.push(['Equip ' + itemInfo(u.it), u.x.g, u.x.avg]);
+        else if (k === 'free') a.push(['Equip ' + itemInfo(u.it) + ' <span class="alias">(' + freeTxt(u.x) + ')</span>', null, u.x.avg, 'free', freePill(u.x)]);
+        else if (k === 'trade') a.push(['Equip ' + itemInfo(u.it) + ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
+        else a.push(['Equip ' + itemInfo(u.it) + ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
+        if (a.length > n0) a[a.length - 1].bag = u.it;
+      } else {
+        var why = k === 'dmg' ? '' : (k === 'free' ? ' <span class="alias">(' + freeTxt(u.x) + ')</span>' :
+          (k === 'trade' ? ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr) : ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ')'));
+        a.push(['Take ' + itemInfo(u.it) + ' from ' + (u.from.slot ? 'Slot ' + u.from.slot + '&rsquo;s bag' : 'the <b>Share bag</b>') + why +
+          (u.from.slot ? ' (unbound: right-click &rarr; share)' : ''), k === 'dmg' ? u.x.g : null, u.x.avg, k === 'dmg' ? null : (k === 'free' ? 'free' : (k === 'trade' ? 'Trade' : 'HP')), k === 'free' ? freePill(u.x) : null]);
+      }
+      a[a.length - 1].hr = u.x.hr; a[a.length - 1].plan = true;
     });
     if (m.enh && withEnh()) a.push(['Enhance <b>' + esc(m.eq[1].name) + '</b> to +' + ((m.eq[1].enhance || 0) + 1) + ' <span class="alias">(' + enhCost(m.eq[1]) + ' per try)</span>', m.enh.g, m.enh.avg]);
     a = a.concat(essTodo(c, m));
-    return a.sort(function (x, y) { return y[2] - x[2]; });
+    var planned = a.filter(function (x) { return x.plan; }), rest = a.filter(function (x) { return !x.plan; }).sort(function (x, y) { return y[2] - x[2]; });
+    var fill = rest.filter(function (x) { return /^Fill empty/.test(x[0]); });
+    return fill.concat(planned, rest.filter(function (x) { return !/^Fill empty/.test(x[0]); }));
   }
   function actPill(x) { return x[1] ? pill(x[1]) : x[4] ? x[4] : '<span class="pill' + (x[3] === 'HP' ? ' hp' : (x[3] === 'Trade' ? ' trade' : '')) + '">' + (x[3] || '!') + '</span>'; }
 
@@ -2121,7 +2165,8 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     for (var i = 0; i < cells; i++) { var it = by[i], s = it ? st[it.index] || {} : {}; g += bmCell(it, s.cls, s.badge, it ? it.name + ' (' + RAR[(it.rarity || 1) - 1] + ')' + (s.why ? ': ' + s.why : '') : ''); }
     var e = '';
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach(function (s) { var it = m.eq[s]; e += it ? bmCell(it, eqN[s] ? 'out' : '', eqN[s] || '', (s === 9 ? 'Vajra Essence' : s === 10 ? 'Yin-Yang Essence' : SLOTN[s]) + ': ' + it.name + (eqN[s] ? ' (take off for ' + eqN[s] + ')' : '')) : '<span class="bm-c empty" title="' + (s === 9 ? 'Vajra Essence' : s === 10 ? 'Yin-Yang Essence' : SLOTN[s]) + ': empty"></span>'; });
-    var n = { up: acts.filter(function (x) { return x.bag; }).length, give: (b.given || []).length, junk: (b.junk || []).length + (b.up || []).length - acts.filter(function (x) { return x.bag && !x.bag.essence; }).length + ej };
+    var n = { up: acts.filter(function (x) { return x.bag; }).length, give: (b.given || []).length, junk: 0 };
+    Object.keys(st).forEach(function (k) { if (st[k].cls === 'junk') n.junk++; });
     return '<details class="bagmap"' + (n.up || n.give || inv.length >= BAGMAX - 8 ? ' open' : '') + '><summary>&#127890; Bag map <span class="alias">(' +
       [inv.length + '/' + BAGMAX, n.up ? n.up + ' to equip' : '', n.give ? n.give + ' to give' : '', n.junk ? n.junk + ' safe to discard' : ''].filter(Boolean).join(' &middot; ') + ')</span></summary>' +
       '<div class="bm-lbl alias">Worn (numbered = take off)</div><div class="bm-grid eq">' + e + '</div>' +
@@ -2627,7 +2672,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     });
   })();
   if (!lastRes) status('<span class="alias">No save loaded yet. Click <b>' + (canDir ? 'Choose save folder' : '&#9881;&#65039; Settings &rarr; Pick save files instead') + '</b>.</span>');
-  window.__maRoster = { show: show, statsOf: statsOf, model: model };
+  window.__maRoster = { show: show, statsOf: statsOf, model: model, planSwaps: planSwaps, simEquip: simEquip };
 })();
 
 (function () {
