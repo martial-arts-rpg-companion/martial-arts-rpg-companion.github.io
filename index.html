@@ -102,6 +102,10 @@ section[hidden]{display:none}
 .bm-n{position:absolute;top:-7px;right:-7px;min-width:15px;height:15px;line-height:15px;padding:0 2px;box-sizing:border-box;border-radius:999px;background:#2f8f46;color:#fff;font-size:10px;font-weight:700;text-align:center}
 .bm-c.give .bm-n,.bm-k.give{background:#148cff}.bm-c.out .bm-n{background:#e0a020}
 .bm-n.in{position:static;display:inline-block;vertical-align:1px}
+.bm-big .bagmap{overflow-x:auto}
+.bm-big .bm-grid{grid-template-columns:repeat(11,48px);gap:5px}
+.bm-big .bm-c{width:48px;height:48px;font-size:26px;border-width:3px;border-radius:7px}
+.bm-big .bm-n{min-width:18px;height:18px;line-height:18px;font-size:12px}
 .bm-k{display:inline-block;min-width:15px;padding:0 3px;border-radius:999px;background:#2f8f46;color:#fff;font-size:10px;text-align:center}
 .gear-t td{padding:4px 8px;font-size:13px}
 .gear-t tr.dim td{opacity:.55}
@@ -233,6 +237,8 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 16px}
         <label id="ros-regen-l" hidden title="How much 1% more HP Regen is worth compared to 1% more HP. Empty = auto: 0.5, Blood Cult 1">HP Regen vs HP <input id="ros-regen" type="number" min="0" max="2" step="0.05" placeholder="auto" style="width:4.5em"></label>
         <label title="Tick if you use the in-game Auto skill button: auto-cast skills wait for your next hit, so Attack Speed also speeds up skills"><input type="checkbox" id="ros-auto"> I use Auto skills</label>
         <label><input type="checkbox" id="ros-enh"> Include enhancing</label>
+        <label title="How often the page looks for a new save in the folder">Check for new saves every <input id="ros-poll" type="number" min="1" max="600" step="1" placeholder="5" style="width:4em"> s</label>
+        <label title="Draw the bag map with big squares like the in-game bag"><input type="checkbox" id="ros-bigbag"> Big bag map (game size)</label>
         <label title="A box listing new items, rank-ups and new wearable levels since you last clicked Seen"><input type="checkbox" id="ros-chg"> Show &ldquo;what changed&rdquo;</label>
         <label title="In game type -1: the line &quot;Current TOTAL: Drop/Currency +X%&quot; is one number for both drops and currency. Only needed in group lobbies: the lobby bonus is not in the save.">Drop/Currency % from <code>-1</code> <input id="ros-drop" type="number" min="0" step="1" placeholder="auto" style="width:5em"></label>
         <div class="ign-row"><span>Ignore slots:</span><span id="ros-ign"></span></div>
@@ -2432,10 +2438,25 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   function connect(h) {
     dirHandle = h;
     return readDir(h, true).then(function () {
-      if (timer) clearInterval(timer);
-      timer = setInterval(function () { readDir(dirHandle, false).catch(function () {}); }, 5000);
+      startPoll();
     });
   }
+  function pollSec() { var e = $('ros-poll'), v = e ? parseFloat(e.value) : NaN; return isFinite(v) ? Math.min(600, Math.max(1, v)) : 5; }
+  function startPoll() {   // check the save folder every N seconds (Settings, default 5)
+    if (timer) clearInterval(timer);
+    if (dirHandle) timer = setInterval(function () { readDir(dirHandle, false).catch(function () {}); }, pollSec() * 1000);
+  }
+  (function () {
+    var e = $('ros-poll'); if (!e) return;
+    try { var v = localStorage.getItem('ma-calc-poll'); if (v) e.value = v; } catch (x) {}
+    e.addEventListener('change', function () { try { localStorage.setItem('ma-calc-poll', e.value); } catch (x) {} startPoll(); });
+  })();
+  (function () {   // bag map at game size (Settings, default off)
+    var e = $('ros-bigbag'), root = $('chars') || document.body; if (!e) return;
+    try { e.checked = localStorage.getItem('ma-calc-bigbag') === '1'; } catch (x) {}
+    root.classList.toggle('bm-big', e.checked);
+    e.addEventListener('change', function () { try { localStorage.setItem('ma-calc-bigbag', e.checked ? '1' : '0'); } catch (x) {} root.classList.toggle('bm-big', e.checked); });
+  })();
   var canDir = typeof window.showDirectoryPicker === 'function' && typeof indexedDB !== 'undefined';
   if (canDir) {
     $('ros-pick').hidden = false;
