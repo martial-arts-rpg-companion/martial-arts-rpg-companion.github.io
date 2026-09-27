@@ -1868,7 +1868,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       chars.map(function (c, i) {
         var m = models[i], a = m ? actions(c, m)[0] : null, pg = m ? progress(c, m) : null;
         var txt = a ? a[0] : (pg ? pg[1] : (m && m.farmT >= 4 ? 'Find <b>[Bonus] ' + STATN[m.lines[0].key] + '</b> on drops' : ''));
-        return '<tr data-slot="' + c.slot + '"><td class="n">' + c.slot + '</td><td>' + esc(c.hero) + '<br><span class="alias">' + esc(c.rank) + '</span></td><td>' + txt + '</td><td class="n">' + (a ? actPill(a) : '') + '</td></tr>';
+        return '<tr data-slot="' + c.slot + '"><td class="n">' + c.slot + '</td><td>' + esc(c.hero) + '<br><span class="alias">' + esc(c.rank) + '</span></td><td>' + txt + '</td><td class="n">' + (a ? (totalPill(actions(c, m)) || actPill(a)) : '') + '</td></tr>';
       }).join('') + '</table></div>';
   }
 
@@ -2061,6 +2061,15 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     if (x[3] === 'free') return x[4] && /pill hp/.test(x[4]) ? '&#10084;&#65039;' : (x[4] && /dmg/.test(x[4]) ? '&#9876;&#65039;' : '&#10024;');   // icon follows the gain
     return '&#9876;&#65039;';
   }
+  function totalGain(acts) {   // all waiting damage upgrades together (different slots -> they multiply)
+    var t = [1, 1], n = 0;
+    (acts || []).forEach(function (x) { if (x[1]) { t[0] *= x[1][0]; t[1] *= x[1][1]; n++; } });
+    return n ? t : null;
+  }
+  function totalPill(acts) {
+    var t = totalGain(acts); if (!t) return '';
+    return pill(t).replace('<span class="pill"', '<span class="pill" title="All waiting damage upgrades together (boss ' + C.pctTxt(t[0]) + ' / farm ' + C.pctTxt(t[1]) + ')"');
+  }
   function actLi(x, big) { return '<li' + (big ? ' class="big"' : '') + '><span class="ico">' + icon(x) + '</span> ' + actPill(x) + ' ' + (x.n ? '<span class="bm-n in">' + x.n + '</span> ' : '') + x[0] + '</li>'; }
 
   // ---- bag map: the in-game bag (11 per row, same order as the save) with the swaps marked
@@ -2252,7 +2261,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     var head = '<button type="button" class="acc-h" data-slot="' + c.slot + '" aria-expanded="' + isOpen + '">' +
       '<span class="dot ' + st[0] + '"></span><span class="acc-who"><b>Slot ' + c.slot + ' &middot; ' + esc(c.hero) + '</b>' +
       '<span class="alias">' + esc(c.rank) + ' &middot; can wear ' + lv(m.mt) + '</span></span>' +
-      '<span class="acc-st ' + st[0] + '">' + st[1] + '</span>' + (top && top[1] ? pill(top[1]) : '') +
+      '<span class="acc-st ' + st[0] + '">' + st[1] + '</span>' + totalPill(acts) +
       '<span class="hide-x" role="button" title="Hide this character" data-hide="' + hidKey(c) + '">Hide</span><span class="chev">&#9662;</span></button>';
     var num = 0; acts.forEach(function (x) { if (x.bag) x.n = ++num; });
     var body = '<div class="ros-lbl">Do this next</div><ul class="ros-list">';
