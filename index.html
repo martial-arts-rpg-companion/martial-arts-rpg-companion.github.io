@@ -2190,7 +2190,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     if (top) body += actLi(top, true);
     var nl = nextLine(c, m);
     if (!top) body += '<li class="big">' + (nl || 'Nothing to do right now.') + '</li>';
-    acts.slice(1, 3).forEach(function (x) { body += actLi(x, false); });
+    acts.slice(1).forEach(function (x) { body += actLi(x, false); });   // every upgrade, never hide one
     if (top && nl) body += '<li>' + nl + '</li>';
     var rt = raidTodo(c); if (rt) body += '<li>' + rt + '</li>';
     body += '</ul>';
