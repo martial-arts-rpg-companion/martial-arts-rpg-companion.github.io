@@ -2112,12 +2112,11 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
   }
   function raidHtml(c) {
     var rs = raidState(c); if (!rs) return '';
-    var none = !rs[0].cl && !rs[1].cl;
-    var body = none ? 'None cleared solo yet. Start with <b>Vajra 1</b>; one solo clear lets you sweep it instantly after.' :
-      rs.map(function (x) {
+    if (!rs[0].cl && !rs[1].cl) return '';   // nothing yet: the Raids section in Item basics covers the start
+    var body = rs.map(function (x) {
         if (!x.cl) return x.n + ': not cleared' + (x.n === 'Yin-Yang' ? ' <span class="alias">(Yin-Yang 1 = Vajra 5 strength)</span>' : '');
         return x.n + ' <b>' + x.cl + '</b> &middot; ' + x.left + '/3 rewards left' + (x.left < 3 ? ' <span class="alias">(full again in ~' + fmtH(x.reset) + ' of play)</span>' : '') +
-          ' &middot; <span title="' + x.miss + ' misses so far; each miss adds 8% of the base chance">Essence ' + x.chance.toFixed(2) + '%</span>' + (x.cl < (x.n === 'Vajra' ? 15 : 11) ? ' &middot; next: try ' + x.n + ' ' + (x.cl + 1) : ' &middot; max level');
+          ' &middot; <span title="' + x.miss + ' misses so far; each miss adds 8% of the base chance">Essence ' + x.chance.toFixed(2) + '%</span>';
       }).join('<br>');
     return '<div class="ros-lbl">Raids</div><div class="ros-txt">' + body + '</div>';
   }
