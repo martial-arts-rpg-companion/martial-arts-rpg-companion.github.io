@@ -91,6 +91,18 @@ section[hidden]{display:none}
 .calc-3{display:grid;grid-template-columns:1fr;gap:8px;margin-top:6px}
 @media (min-width:900px){.calc-2{grid-template-columns:1fr 1fr}.calc-3{grid-template-columns:.8fr 1.4fr 1fr}}
 #calc .calc-box table{border:none}
+.bagmap{margin:6px 0 8px;border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+.bagmap>summary{cursor:pointer;font-weight:700;font-size:13px}
+.bm-lbl{font-size:11px;margin:6px 0 3px}
+.bm-grid{display:grid;grid-template-columns:repeat(11,26px);gap:3px}
+.bm-c{width:26px;height:26px;box-sizing:border-box;border:2px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:13px;position:relative;background:var(--bg)}
+.bm-c.r2{border-color:#148cff}.bm-c.r3{border-color:#d45fcf}.bm-c.r4{border-color:#e05a5a}.bm-c.r5{border-color:#2bb5b5}
+.bm-c.empty{opacity:.35}.bm-c.junk{opacity:.28}
+.bm-c.up{box-shadow:0 0 0 2px #2f8f46}.bm-c.give{box-shadow:0 0 0 2px #148cff}.bm-c.out{box-shadow:0 0 0 2px #e0a020}
+.bm-n{position:absolute;top:-7px;right:-7px;min-width:15px;height:15px;line-height:15px;padding:0 2px;box-sizing:border-box;border-radius:999px;background:#2f8f46;color:#fff;font-size:10px;font-weight:700;text-align:center}
+.bm-c.give .bm-n,.bm-k.give{background:#148cff}.bm-c.out .bm-n{background:#e0a020}
+.bm-n.in{position:static;display:inline-block;vertical-align:1px}
+.bm-k{display:inline-block;min-width:15px;padding:0 3px;border-radius:999px;background:#2f8f46;color:#fff;font-size:10px;text-align:center}
 .gear-t td{padding:4px 8px;font-size:13px}
 .gear-t tr.dim td{opacity:.55}
 .weak{color:var(--accent);font-size:12px}
@@ -1744,10 +1756,12 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       return Object.keys(by).map(function (k) { return by[k]; });
     };
     bestPer(c._bag.up).forEach(function (u) {
+      var n0 = a.length;
       if (u.x.kind === 'dmg') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it), u.x.g, u.x.avg]);
       else if (u.x.kind === 'free') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' <span class="alias">(' + freeTxt(u.x) + ')</span>', null, u.x.avg, 'free', freePill(u.x)]);
       else if (u.x.kind === 'trade') a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ': trade ' + C.pctTxt(u.x.dmg) + ' damage for ' + hpTxt(u.x.hr), null, u.x.avg, 'Trade']);
       else a.push(['Equip ' + itemInfo(u.it) + wornTxt(m, u.it) + ' for survival (' + (hpTxt(u.x.hr) || survTxt(u.x)) + ', damage unchanged)', null, u.x.avg, 'HP']);
+      if (a.length > n0) a[a.length - 1].bag = u.it;
     });
     bestPer(c._bag.share).forEach(function (u) {
       var k = u.x.kind, why = k === 'dmg' ? '' : (k === 'free' ? ' <span class="alias">(' + freeTxt(u.x) + ')</span>' :
@@ -2037,7 +2051,38 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     if (x[3] === 'free') return x[4] && /pill hp/.test(x[4]) ? '&#10084;&#65039;' : (x[4] && /dmg/.test(x[4]) ? '&#9876;&#65039;' : '&#10024;');   // icon follows the gain
     return '&#9876;&#65039;';
   }
-  function actLi(x, big) { return '<li' + (big ? ' class="big"' : '') + '><span class="ico">' + icon(x) + '</span> ' + actPill(x) + ' ' + x[0] + '</li>'; }
+  function actLi(x, big) { return '<li' + (big ? ' class="big"' : '') + '><span class="ico">' + icon(x) + '</span> ' + actPill(x) + ' ' + (x.n ? '<span class="bm-n in">' + x.n + '</span> ' : '') + x[0] + '</li>'; }
+
+  // ---- bag map: the in-game bag (11 per row, same order as the save) with the swaps marked
+  var GLY = { 1: '&#128481;&#65039;', 2: '&#128085;', 3: '&#9937;&#65039;', 4: '&#128255;', 5: '&#8986;', 6: '&#129508;', 7: '&#128141;', 8: '&#128141;', 9: '&#128302;', 10: '&#128302;' };
+  function bmCell(it, cls, badge, tip) {
+    if (!it) return '<span class="bm-c empty"></span>';
+    return '<span class="bm-c r' + (it.rarity || 1) + (cls ? ' ' + cls : '') + '" title="' + esc(tip) + '">' + (GLY[it.slot] || '&#128230;') +
+      (badge ? '<span class="bm-n">' + badge + '</span>' : '') + '</span>';
+  }
+  function bagMap(c, m, acts) {
+    var b = c._bag, inv = c.inventory || [];
+    if (!inv.length || !b) return '';
+    var st = {}, add = function (list, cls, badge, why) { (list || []).forEach(function (x) { st[x.it.index] = { cls: cls, badge: badge ? badge(x) : '', why: why(x) }; }); };
+    add(b.junk, 'junk', null, function () { return 'not useful: safe to discard'; });
+    add(b.later, '', null, function (x) { return 'keep: Slot ' + x.o.slot + ' can wear it later'; });
+    add(b.given, 'give', function (x) { return 'S' + x.to.slot; }, function (x) { return 'give to Slot ' + x.to.slot + ' (' + x.to.hero + ')'; });
+    add(b.up, 'junk', null, function () { return 'a better one for this slot is marked'; });
+    var eqN = {};
+    acts.forEach(function (x) { if (x.bag) { st[x.bag.index] = { cls: 'up', badge: x.n, why: 'equip (' + x.n + ')' }; eqN[x.bag.slot] = x.n; } });
+    var last = 0; inv.forEach(function (it) { if (it.index > last) last = it.index; });
+    var cells = Math.max(11, Math.ceil((last + 1) / 11) * 11), by = {}, g = '';
+    inv.forEach(function (it) { by[it.index] = it; });
+    for (var i = 0; i < cells; i++) { var it = by[i], s = it ? st[it.index] || {} : {}; g += bmCell(it, s.cls, s.badge, it ? it.name + ' (' + RAR[(it.rarity || 1) - 1] + ')' + (s.why ? ': ' + s.why : '') : ''); }
+    var e = '';
+    [1, 2, 3, 4, 5, 6, 7, 8].forEach(function (s) { var it = m.eq[s]; e += it ? bmCell(it, eqN[s] ? 'out' : '', eqN[s] || '', SLOTN[s] + ': ' + it.name + (eqN[s] ? ' (take off for ' + eqN[s] + ')' : '')) : '<span class="bm-c empty" title="' + SLOTN[s] + ': empty"></span>'; });
+    var n = { up: acts.filter(function (x) { return x.bag; }).length, give: (b.given || []).length, junk: (b.junk || []).length + (b.up || []).length - acts.filter(function (x) { return x.bag; }).length };
+    return '<details class="bagmap"' + (n.up || n.give ? ' open' : '') + '><summary>&#127890; Bag map <span class="alias">(' +
+      [n.up ? n.up + ' to equip' : '', n.give ? n.give + ' to give' : '', n.junk ? n.junk + ' safe to discard' : ''].filter(Boolean).join(' &middot; ') + ')</span></summary>' +
+      '<div class="bm-lbl alias">Worn (numbered = take off)</div><div class="bm-grid eq">' + e + '</div>' +
+      '<div class="bm-lbl alias">Bag, same order as in game &middot; <b class="bm-k up">1</b> equip &middot; <b class="bm-k give">S1</b> give to that slot &middot; faded = not useful</div>' +
+      '<div class="bm-grid">' + g + '</div></details>';
+  }
   function light(c, m, acts) {
     var cond = c.afk_time_bank || 0;
     var empty = [1, 2, 3, 4, 5, 6].some(function (s) { return !ign(s) && !m.eq[s]; });
@@ -2186,6 +2231,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
       '<span class="alias">' + esc(c.rank) + ' &middot; can wear ' + lv(m.mt) + '</span></span>' +
       '<span class="acc-st ' + st[0] + '">' + st[1] + '</span>' + (top && top[1] ? pill(top[1]) : '') +
       '<span class="hide-x" role="button" title="Hide this character" data-hide="' + hidKey(c) + '">Hide</span><span class="chev">&#9662;</span></button>';
+    var num = 0; acts.forEach(function (x) { if (x.bag) x.n = ++num; });
     var body = '<div class="ros-lbl">Do this next</div><ul class="ros-list">';
     if (top) body += actLi(top, true);
     var nl = nextLine(c, m);
@@ -2194,6 +2240,7 @@ window.AFK_DATA={"stages":[{"lctn":1,"name":"Training 1-1 - Mumyeong Forest Entr
     if (top && nl) body += '<li>' + nl + '</li>';
     var rt = raidTodo(c); if (rt) body += '<li>' + rt + '</li>';
     body += '</ul>';
+    body += bagMap(c, m, acts);
     body += afkHtml(c);
     var more = simpleMode() ? !!MORE[c.slot] : true;
     body += '<details class="more" data-slot="' + c.slot + '"' + (more ? ' open' : '') + '><summary>More details</summary>' + detailsHtml(c, m) + '</details>';
